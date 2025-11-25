@@ -424,6 +424,7 @@
     </div>
 
     ✦ Tool concept by <span style="color:#facc15; font-weight:600;">Saint Uber</span><br>
+    <span style="font-size:0.75rem; opacity:0.8;"> Rally Sync Innovator – Kingshot</span>
   </footer>
 
   <script>
@@ -880,8 +881,10 @@
     }
 
     function cancelAndEdit() {
-      // Stop timers, exit HUD, go back to full edit mode
+      // Stop timers, exit HUD, hide schedule, go back to edit view
       resetLiveState(true);
+      resultsDiv.style.display = 'none';
+      summaryDiv.innerHTML = '';
       liveSection.style.display = 'block';
       document.body.classList.remove('live-mode');
     }
