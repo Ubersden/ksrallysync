@@ -207,6 +207,23 @@
       }
     }
 
+    /* Go button alert state (red + subtle pulse) */
+    .go-alert {
+      background: #dc2626; /* red-600 */
+      animation: goflash 1s infinite;
+    }
+
+    @keyframes goflash {
+      0%, 100% {
+        transform: scale(1);
+        filter: brightness(1);
+      }
+      50% {
+        transform: scale(1.05);
+        filter: brightness(1.2);
+      }
+    }
+
     @media (max-width: 600px) {
       body {
         padding: 0.75rem;
@@ -255,11 +272,13 @@
         <label class="base-time">
           Rally time for all rallies:
           <select id="globalRallyTime">
+            <option value="1">1 min</option>
             <option value="5">5 min</option>
             <option value="10">10 min</option>
             <option value="30">30 min</option>
             <option value="60">60 min</option>
           </select>
+
         </label>
       </div>
     </div>
@@ -279,7 +298,7 @@
     <div class="btn-row">
       <button type="button" id="calcBtn">⚔️ Calculate Rally Timing</button>
       <span class="base-time">
-        Tip: Start fake rally to test march times from each rally lead to the target, then plug them in here.
+        Tip: Start a fake rally to test march times from each rally lead to the target, then plug them in here.
       </span>
     </div>
 
@@ -309,6 +328,7 @@
           Click at the exact moment you create the <strong>base rally</strong> with the selected rally time.
         </span>
       </div>
+      <div id="goHint" class="base-time" style="text-align:center; margin-bottom:0.5rem;"></div>
       <div id="liveStatus"></div>
     </div>
   </div>
@@ -375,6 +395,7 @@
     const liveSection = document.getElementById('liveSection');
     const liveStatus = document.getElementById('liveStatus');
     const startLiveBtn = document.getElementById('startLiveBtn');
+    const goHint = document.getElementById('goHint');
 
     // Live countdown
     let schedule = [];          // [{ name, delay, rowEl, launched }]
@@ -435,7 +456,7 @@
       timeInput.classList.add('march-time');
       timeTd.appendChild(timeInput);
 
-      // Delay column will be filled after calculation (read-only text)
+      // Delay After Base (s) - will be filled after calculation
       const delayTd = document.createElement('td');
       delayTd.textContent = '-';
 
@@ -454,7 +475,7 @@
       return isNaN(v) || v <= 0 ? NaN : v;
     }
 
-    // Format seconds as mm:ss for summary readability
+    // For summary text only
     function formatTime(sec) {
       if (!isFinite(sec)) return '';
       sec = Math.round(sec);
@@ -472,6 +493,9 @@
       liveStatus.textContent = '';
       liveStatus.classList.remove('flash');
       startLiveBtn.disabled = false;
+      startLiveBtn.textContent = '▶ Start First Rally';
+      startLiveBtn.classList.remove('go-alert');
+      if (goHint) goHint.textContent = '';
       lastImpactBeepSecond = null;
       schedule.forEach(item => {
         item.rowEl.style.outline = 'none';
@@ -537,6 +561,7 @@
       globalTotalDuration = globalRallySeconds + globalMaxMarch;
 
       const baseEntries = entries.filter(e => e.marchSeconds === globalMaxMarch);
+
       let baseLabel;
       if (baseEntries.length === 1) {
         baseLabel = `Base (slowest) rally is <strong>${baseEntries[0].name}</strong> with march <strong>${globalMaxMarch}s (${formatTime(globalMaxMarch)})</strong>.`;
@@ -545,42 +570,59 @@
         baseLabel = `Multiple base rallies share the slowest march time <strong>${globalMaxMarch}s (${formatTime(globalMaxMarch)})</strong>: <strong>${names}</strong>. Choose any one as your base.`;
       }
 
+      // Update Go button + hint (Option E: B+C+D)
+      if (baseEntries.length === 1) {
+        const baseName = baseEntries[0].name;
+        startLiveBtn.textContent = `▶ Go ${baseName}`;
+        startLiveBtn.classList.add('go-alert');
+        if (goHint) {
+          goHint.textContent = `${baseName} must launch first to sync all rallies.`;
+        }
+      } else {
+        startLiveBtn.textContent = '▶ Go Base Rally';
+        startLiveBtn.classList.add('go-alert');
+        if (goHint) {
+          const names = baseEntries.map(e => e.name).join(', ');
+          goHint.textContent = `Any base rally (slowest march: ${names}) can launch first to sync all rallies.`;
+        }
+      }
+
       summaryDiv.innerHTML = `
         <p class="description">
           ${baseLabel}<br>
           Common rally time: <strong>${rallyMinutes} min (${globalRallySeconds}s, ${formatTime(globalRallySeconds)})</strong>.<br>
           From base rally creation (t = 0) to impact: <strong>${globalTotalDuration}s (${formatTime(globalTotalDuration)})</strong>.<br>
-          Click "Start First Rally" when you create the base rally in-game (t = 0). Launch all other rallies after the listed delays.
+          Click "Go" when the base rally is created in-game. Launch all other rallies after the listed delays.
         </p>
       `;
 
-      // Build results table & schedule (seconds-only in table)
+      // Build results table & schedule (seconds-only), and update top-table delay cells
       entries.forEach(e => {
         const delay = Math.max(0, globalMaxMarch - e.marchSeconds);
-      
-        // 🟢 Update delay cell in the TOP table (input rows)
-        const originalDelayCell = e.rowEl.children[2]; // 3rd <td> in the input row
+
+        // Update delay cell in the TOP table (input rows)
+        const originalDelayCell = e.rowEl.children[2]; // 3rd <td>
         if (originalDelayCell) {
           originalDelayCell.textContent = `${delay}s`;
         }
-      
-        // Also fill the RESULTS table below
+
+        // Fill the RESULTS table below
         const tr = document.createElement('tr');
-      
+
         const nameTd = document.createElement('td');
         nameTd.textContent = e.name;
-      
+
         const marchTd = document.createElement('td');
         marchTd.textContent = `${e.marchSeconds}s`;
-      
+
         const delayTd = document.createElement('td');
         delayTd.textContent = `${delay}s`;
-      
+
         tr.appendChild(nameTd);
         tr.appendChild(marchTd);
         tr.appendChild(delayTd);
         resultsBody.appendChild(tr);
-      
+
         schedule.push({
           name: e.name,
           delay,
@@ -589,24 +631,29 @@
         });
       });
 
-
       // Sort schedule by delay so we know call order
       schedule.sort((a, b) => a.delay - b.delay);
 
       resultsDiv.style.display = 'block';
       liveSection.style.display = 'block';
-      liveStatus.textContent = 'Ready. Click "Start First Rally" when you create the base rally.';
+      liveStatus.textContent = 'Ready. Click the Go button when the base rally is created.';
       startLiveBtn.disabled = false;
     }
 
     function startLiveCountdown() {
       if (!schedule.length) return;
 
-      resetLive();
-      initAudio();
+      // Once countdown is live, stop pulsing the button
+      startLiveBtn.classList.remove('go-alert');
+
+      resetLive(); // but we don't want to reset button text now, so we re-set it below
+      // We just reset live state, not full schedule
       liveStartTime = Date.now();
       startLiveBtn.disabled = true;
       liveStatus.classList.add('flash');
+
+      // Re-apply hint text after resetLive cleared it
+      // (We don't strictly need this, but it keeps the hint visible during countdown)
 
       liveInterval = setInterval(() => {
         const elapsed = (Date.now() - liveStartTime) / 1000;
