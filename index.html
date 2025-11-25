@@ -328,7 +328,8 @@
     <table>
       <thead>
         <tr>
-          <th style="width: 50%;">Caller Name</th>
+          <th style="width: 15%;">Alliance Tag</th>
+          <th style="width: 35%;">Caller Name</th>
           <th style="width: 30%;">March Time (s)</th>
           <th style="width: 20%;">Delay After Base (s)</th>
         </tr>
@@ -352,6 +353,7 @@
       <table id="resultsTable">
         <thead>
           <tr>
+            <th>Alliance</th>
             <th>Caller</th>
             <th>March (s)</th>
             <th>Delay After Base (s)</th>
@@ -447,7 +449,7 @@
     const goHint = document.getElementById('goHint');
 
     // Live countdown
-    let schedule = [];          // [{ name, delay, rowEl, launched }]
+    let schedule = [];          // [{ tag, name, label, delay, rowEl, launched }]
     let liveInterval = null;
     let liveStartTime = null;
 
@@ -496,8 +498,26 @@
       }
     }
 
-    function addRow(name = '', marchTime = '') {
+    function makeLabel(tag, name) {
+      tag = (tag || '').trim();
+      name = (name || '').trim();
+      if (tag && name) return `[${tag}] ${name}`;
+      if (name) return name;
+      if (tag) return `[${tag}]`;
+      return 'Unnamed';
+    }
+
+    function addRow(tag = '', name = '', marchTime = '') {
       const tr = document.createElement('tr');
+
+      // Alliance tag
+      const tagTd = document.createElement('td');
+      const tagInput = document.createElement('input');
+      tagInput.type = 'text';
+      tagInput.placeholder = 'Tag';
+      if (tag) tagInput.value = tag;
+      tagInput.classList.add('caller-tag');
+      tagTd.appendChild(tagInput);
 
       // Caller name
       const nameTd = document.createElement('td');
@@ -521,6 +541,7 @@
       const delayTd = document.createElement('td');
       delayTd.textContent = '-';
 
+      tr.appendChild(tagTd);
       tr.appendChild(nameTd);
       tr.appendChild(timeTd);
       tr.appendChild(delayTd);
@@ -586,15 +607,17 @@
       const entries = [];
 
       for (const row of rows) {
+        const tagInput = row.querySelector('.caller-tag');
         const nameInput = row.querySelector('.caller-name');
         const marchInput = row.querySelector('.march-time');
 
-        if (!nameInput || !marchInput) continue;
+        if (!nameInput || !marchInput || !tagInput) continue;
 
+        const tag = tagInput.value.trim();
         const name = nameInput.value.trim();
         const timeStr = marchInput.value.trim();
 
-        if (!name && !timeStr) {
+        if (!tag && !name && !timeStr) {
           continue; // ignore empty row
         }
 
@@ -612,6 +635,7 @@
         }
 
         entries.push({
+          tag,
           name: name || 'Unnamed',
           marchSeconds: secs,
           rowEl: row
@@ -631,23 +655,26 @@
 
       let baseLabel;
       if (baseEntries.length === 1) {
-        baseLabel = `Base (slowest) rally is <strong>${baseEntries[0].name}</strong> with march <strong>${globalMaxMarch}s (${formatTime(globalMaxMarch)})</strong>.`;
+        const be = baseEntries[0];
+        const label = makeLabel(be.tag, be.name);
+        baseLabel = `Base (slowest) rally is <strong>${label}</strong> with march <strong>${globalMaxMarch}s (${formatTime(globalMaxMarch)})</strong>.`;
       } else {
-        const names = baseEntries.map(e => e.name).join(', ');
-        baseLabel = `Multiple base rallies share the slowest march time <strong>${globalMaxMarch}s (${formatTime(globalMaxMarch)})</strong>: <strong>${names}</strong>. Choose any one as your base.`;
+        const labels = baseEntries.map(e => makeLabel(e.tag, e.name)).join(', ');
+        baseLabel = `Multiple base rallies share the slowest march time <strong>${globalMaxMarch}s (${formatTime(globalMaxMarch)})</strong>: <strong>${labels}</strong>. Choose any one as your base.`;
       }
 
       // Update Go button + hint
       if (baseEntries.length === 1) {
-        const baseName = baseEntries[0].name;
-        startLiveBtn.textContent = `▶ Go ${baseName}`;
+        const be = baseEntries[0];
+        const label = makeLabel(be.tag, be.name);
+        startLiveBtn.textContent = `▶ Go ${label}`;
         startLiveBtn.classList.add('go-alert');
-        goHint.textContent = `${baseName} must launch first to sync all rallies.`;
+        goHint.textContent = `${label} must launch first to sync all rallies.`;
       } else {
         startLiveBtn.textContent = '▶ Go Base Rally';
         startLiveBtn.classList.add('go-alert');
-        const names = baseEntries.map(e => e.name).join(', ');
-        goHint.textContent = `Any base rally (slowest march: ${names}) can launch first to sync all rallies.`;
+        const labels = baseEntries.map(e => makeLabel(e.tag, e.name)).join(', ');
+        goHint.textContent = `Any base rally (slowest march: ${labels}) can launch first to sync all rallies.`;
       }
 
       summaryDiv.innerHTML = `
@@ -662,15 +689,19 @@
       // Build results table & schedule (seconds-only), and update top-table delay cells
       entries.forEach(e => {
         const delay = Math.max(0, globalMaxMarch - e.marchSeconds);
+        const label = makeLabel(e.tag, e.name);
 
         // Update delay cell in the TOP table (input rows)
-        const originalDelayCell = e.rowEl.children[2]; // 3rd <td>
+        const originalDelayCell = e.rowEl.children[3]; // 4th <td>
         if (originalDelayCell) {
           originalDelayCell.textContent = `${delay}s`;
         }
 
         // Fill the RESULTS table below
         const tr = document.createElement('tr');
+
+        const tagTd = document.createElement('td');
+        tagTd.textContent = e.tag || '';
 
         const nameTd = document.createElement('td');
         nameTd.textContent = e.name;
@@ -681,13 +712,16 @@
         const delayTd = document.createElement('td');
         delayTd.textContent = `${delay}s`;
 
+        tr.appendChild(tagTd);
         tr.appendChild(nameTd);
         tr.appendChild(marchTd);
         tr.appendChild(delayTd);
         resultsBody.appendChild(tr);
 
         schedule.push({
+          tag: e.tag,
           name: e.name,
+          label,
           delay,
           rowEl: tr,
           launched: false
@@ -727,7 +761,7 @@
           if (!item.launched && elapsed >= item.delay) {
             item.launched = true;
             beep();
-            speak(`Go ${item.name}`);
+            speak(`Go ${item.label}`);
             if (navigator.vibrate) {
               navigator.vibrate([150, 80, 150]);
             }
@@ -807,7 +841,7 @@
           liveStatus.innerHTML = `
             <div class="next-block">
               <div class="next-label">Next rally</div>
-              <div class="next-name-big ${urgencyClass}">${next.name}</div>
+              <div class="next-name-big ${urgencyClass}">${next.label}</div>
               <div class="next-time-big ${urgencyClass}">${remaining.toFixed(1)}s</div>
             </div>
             <div class="impact-line">
@@ -905,11 +939,11 @@
       // Clear existing rows and load a sample scenario
       rallyBody.innerHTML = '';
 
-      addRow('Saul', '40');
-      addRow('Amadeus', '47');
-      addRow('Jabel', '53');
-      addRow('Helga', '60');
-      addRow('Chenko', '68');
+      addRow('Ksa', 'Saul', '40');
+      addRow('Ksa', 'Amadeus', '47');
+      addRow('Ksa', 'Jabel', '53');
+      addRow('Ksa', 'Helga', '60');
+      addRow('Ksa', 'Chenko', '68');
 
       // Auto-run calculation and jump into HUD mode
       calculate();
