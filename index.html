@@ -368,6 +368,7 @@
         <div class="btn-group">
           <button type="button" id="startLiveBtn">▶ Start First Rally</button>
           <button type="button" class="secondary" id="cancelLiveBtn">⏹ Cancel Rally</button>
+          <button type="button" class="secondary" id="editLiveBtn">✏️ Cancel & Edit</button>
         </div>
         <span class="base-time">
           Click <strong>Go</strong> at the exact moment you create the <strong>base rally</strong> with the selected rally time.
@@ -442,6 +443,7 @@
     const liveStatus = document.getElementById('liveStatus');
     const startLiveBtn = document.getElementById('startLiveBtn');
     const cancelLiveBtn = document.getElementById('cancelLiveBtn');
+    const editLiveBtn = document.getElementById('editLiveBtn');
     const goHint = document.getElementById('goHint');
 
     // Live countdown
@@ -778,12 +780,12 @@
             </div>
           `;
         } else {
-          // All rallies created, just show impact countdown
+          // All rallies created, just show impact countdown (MARCHING)
           schedule.forEach(item => item.rowEl.style.outline = 'none');
           liveStatus.innerHTML = `
             <div class="next-block">
               <div class="next-label">All rallies created</div>
-              <div class="next-name-big urgency-low">Waiting</div>
+              <div class="next-name-big urgency-low">Marching</div>
             </div>
             <div class="impact-line">
               Impact in <span class="impact-time">${impactRemaining.toFixed(1)}s</span>
@@ -811,8 +813,24 @@
     }
 
     function cancelLive() {
-      // Stop timers, exit HUD, keep schedule & labels so user can hit Go again
+      // Stop timers, stay in HUD, keep schedule & labels so user can hit Go again
       resetLiveState(false);
+      liveSection.style.display = 'block';
+      document.body.classList.add('live-mode');
+      liveStatus.innerHTML = `
+        <div class="next-block">
+          <div class="next-label">Rally cancelled</div>
+          <div class="next-name-big urgency-low">Ready</div>
+        </div>
+        <div class="impact-line">
+          Press <span class="impact-time">Start First Rally</span> to run again.
+        </div>
+      `;
+    }
+
+    function cancelAndEdit() {
+      // Stop timers, exit HUD, go back to full edit mode
+      resetLiveState(true);
       liveSection.style.display = 'block';
       document.body.classList.remove('live-mode');
     }
@@ -862,6 +880,7 @@
     calcBtn.addEventListener('click', calculate);
     startLiveBtn.addEventListener('click', startLiveCountdown);
     cancelLiveBtn.addEventListener('click', cancelLive);
+    editLiveBtn.addEventListener('click', cancelAndEdit);
 
     // Default empty rows on load
     addRow();
