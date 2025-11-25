@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Kingshot KVK Rally Sync Calculator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 1.5rem;
+      background: #0b1220;
+      color: #e5e7eb;
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: 1.8rem;
+      color: #facc15;
+      text-align: center;
+    }
+
+    .card {
+      max-width: 900px;
+      margin: 0 auto;
+      background: rgba(15, 23, 42, 0.95);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      box-shadow: 0 20px 30px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+    }
+
+    .description {
+      font-size: 0.9rem;
+      color: #9ca3af;
+      margin-bottom: 1rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 1rem;
+    }
+
+    th, td {
+      padding: 0.4rem 0.5rem;
+      text-align: left;
+      font-size: 0.9rem;
+    }
+
+    th {
+      border-bottom: 1px solid rgba(148, 163, 184, 0.5);
+      color: #e5e7eb;
+    }
+
+    tr:nth-child(even) td {
+      background: rgba(15, 23, 42, 0.6);
+    }
+
+    input[type="text"],
+    input[type="time"] {
+      width: 100%;
+      padding: 0.3rem 0.4rem;
+      border-radius: 0.4rem;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      background: #020617;
+      color: #e5e7eb;
+      box-sizing: border-box;
+    }
+
+    input[type="text"]:focus,
+    input[type="time"]:focus {
+      outline: none;
+      border-color: #facc15;
+      box-shadow: 0 0 0 1px #facc15;
+    }
+
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 0.4rem 0.9rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      background: #16a34a;
+      color: #f9fafb;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    button.secondary {
+      background: #1f2937;
+    }
+
+    button.danger {
+      background: #b91c1c;
+    }
+
+    button:hover {
+      filter: brightness(1.1);
+    }
+
+    .base-time {
+      font-size: 0.85rem;
+      color: #9ca3af;
+    }
+
+    .results {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.4);
+    }
+
+    .results h2 {
+      font-size: 1.1rem;
+      margin: 0 0 0.4rem;
+      color: #e5e7eb;
+    }
+
+    .warn {
+      color: #f97316;
+      font-size: 0.85rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .error {
+      color: #fca5a5;
+      font-size: 0.85rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 0.1rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: rgba(34, 197, 94, 0.15);
+      color: #bbf7d0;
+      border: 1px solid rgba(34, 197, 94, 0.6);
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 0.75rem;
+      }
+      .card {
+        padding: 1rem;
+      }
+      th, td {
+        font-size: 0.8rem;
+      }
+      button {
+        width: 100%;
+        justify-content: center;
+      }
+      .btn-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .btn-group {
+        width: 100%;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Kingshot KVK Rally Sync</h1>
+  <div class="card">
+    <p class="description">
+      Enter each rally caller and their march time to the target.<br>
+      Times can be in <strong>mm:ss</strong> (e.g. <code>0:37</code>) or plain seconds (e.g. <code>37</code>).
+      The tool will tell you how long after the <strong>slowest march</strong> starts each other rally should launch, so all hit together.
+    </p>
+
+    <div class="btn-row">
+      <div class="btn-group">
+        <button type="button" id="addRowBtn">＋ Add Rally</button>
+        <button type="button" class="secondary" id="clearBtn">Clear All</button>
+      </div>
+      <div>
+        <label class="base-time">
+          Base rally start time (optional):
+          <input type="time" id="baseStartTime">
+        </label>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 40%;">Caller Name</th>
+          <th style="width: 40%;">March Time (mm:ss or seconds)</th>
+          <th style="width: 20%;">Remove</th>
+        </tr>
+      </thead>
+      <tbody id="rallyBody">
+      </tbody>
+    </table>
+
+    <div class="btn-row">
+      <button type="button" id="calcBtn">⚔️ Calculate Rally Timing</button>
+      <span class="base-time">
+        Tip: Use scouts to test march times from each rally lead to the target, then plug them in here.
+      </span>
+    </div>
+
+    <div id="message"></div>
+
+    <div class="results" id="results" style="display:none;">
+      <h2>Rally Start Schedule <span class="tag">Synced Hit</span></h2>
+      <div id="summary"></div>
+      <table id="resultsTable">
+        <thead>
+          <tr>
+            <th>Caller</th>
+            <th>March Time</th>
+            <th>Delay After Base</th>
+            <th>Start Time (if base set)</th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody">
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const rallyBody = document.getElementById('rallyBody');
+    const addRowBtn = document.getElementById('addRowBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const calcBtn = document.getElementById('calcBtn');
+    const messageDiv = document.getElementById('message');
+    const resultsDiv = document.getElementById('results');
+    const resultsBody = document.getElementById('resultsBody');
+    const summaryDiv = document.getElementById('summary');
+    const baseStartInput = document.getElementById('baseStartTime');
+
+    function addRow(name = '', time = '') {
+      const tr = document.createElement('tr');
+
+      const nameTd = document.createElement('td');
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.placeholder = 'Saul / Amadeus / Jabel...';
+      nameInput.value = name;
+      nameTd.appendChild(nameInput);
+
+      const timeTd = document.createElement('td');
+      const timeInput = document.createElement('input');
+      timeInput.type = 'text';
+      timeInput.placeholder = '0:37 or 37';
+      timeInput.value = time;
+      timeTd.appendChild(timeInput);
+
+      const removeTd = document.createElement('td');
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.textContent = '🗑 Remove';
+      removeBtn.classList.add('danger');
+      removeBtn.addEventListener('click', () => {
+        rallyBody.removeChild(tr);
+      });
+      removeTd.appendChild(removeBtn);
+
+      tr.appendChild(nameTd);
+      tr.appendChild(timeTd);
+      tr.appendChild(removeTd);
+
+      rallyBody.appendChild(tr);
+    }
+
+    // Parse "mm:ss" or "seconds" into total seconds
+    function parseTime(str) {
+      if (!str) return NaN;
+      str = str.trim();
+      if (!str) return NaN;
+
+      if (str.includes(':')) {
+        const parts = str.split(':');
+        if (parts.length !== 2) return NaN;
+        const m = parseFloat(parts[0]);
+        const s = parseFloat(parts[1]);
+        if (isNaN(m) || isNaN(s)) return NaN;
+        return m * 60 + s;
+      } else {
+        const v = parseFloat(str);
+        if (isNaN(v)) return NaN;
+        return v;
+      }
+    }
+
+    // Format seconds as mm:ss
+    function formatTime(sec) {
+      if (!isFinite(sec)) return '';
+      sec = Math.round(sec);
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return m + ':' + String(s).padStart(2, '0');
+    }
+
+    function parseBaseTimeToDate(timeStr) {
+      // timeStr is "HH:MM"
+      if (!timeStr) return null;
+      const [h, m] = timeStr.split(':').map(Number);
+      if (isNaN(h) || isNaN(m)) return null;
+      const now = new Date();
+      now.setHours(h, m, 0, 0);
+      return now;
+    }
+
+    function formatClockTime(date) {
+      const h = String(date.getHours()).padStart(2, '0');
+      const m = String(date.getMinutes()).padStart(2, '0');
+      const s = String(date.getSeconds()).padStart(2, '0');
+      return `${h}:${m}:${s}`;
+    }
+
+    function calculate() {
+      messageDiv.innerHTML = '';
+      messageDiv.className = '';
+      resultsDiv.style.display = 'none';
+      resultsBody.innerHTML = '';
+      summaryDiv.innerHTML = '';
+
+      const rows = Array.from(rallyBody.querySelectorAll('tr'));
+      const entries = [];
+
+      for (const row of rows) {
+        const inputs = row.querySelectorAll('input');
+        const name = inputs[0].value.trim();
+        const timeStr = inputs[1].value.trim();
+
+        if (!name && !timeStr) {
+          continue; // ignore empty rows
+        }
+
+        if (!timeStr) {
+          messageDiv.textContent = 'Each rally needs a march time.';
+          messageDiv.className = 'error';
+          return;
+        }
+
+        const seconds = parseTime(timeStr);
+        if (isNaN(seconds) || seconds <= 0) {
+          messageDiv.textContent = `Invalid time "${timeStr}". Use mm:ss (0:37) or seconds (37).`;
+          messageDiv.className = 'error';
+          return;
+        }
+
+        entries.push({
+          name: name || 'Unnamed',
+          rawTime: timeStr,
+          seconds
+        });
+      }
+
+      if (entries.length < 2) {
+        messageDiv.textContent = 'Add at least two rallies to sync.';
+        messageDiv.className = 'warn';
+        return;
+      }
+
+      const maxSeconds = Math.max(...entries.map(e => e.seconds));
+      const baseEntries = entries.filter(e => e.seconds === maxSeconds);
+
+      let baseLabel;
+      if (baseEntries.length === 1) {
+        baseLabel = `Base (slowest) march is <strong>${baseEntries[0].name}</strong> at <strong>${formatTime(maxSeconds)}</strong>.`;
+      } else {
+        const names = baseEntries.map(e => e.name).join(', ');
+        baseLabel = `Multiple marches share the slowest time <strong>${formatTime(maxSeconds)}</strong>: <strong>${names}</strong>. Choose any one as your base.`;
+      }
+
+      const baseTimeStr = baseStartInput.value;
+      const baseDate = parseBaseTimeToDate(baseTimeStr);
+
+      if (baseTimeStr && !baseDate) {
+        messageDiv.textContent = 'Invalid base start time. Use HH:MM (e.g. 21:05).';
+        messageDiv.className = 'error';
+        return;
+      }
+
+      summaryDiv.innerHTML = `
+        <p class="description">
+          ${baseLabel}<br>
+          Start the base rally at <strong>t = 0</strong>${baseDate ? ' (or at <strong>' + baseTimeStr + '</strong> in real time)' : ''}.<br>
+          Launch each other rally after the listed delay so all hits land together.
+        </p>
+      `;
+
+      for (const e of entries) {
+        const delay = maxSeconds - e.seconds;
+        const delayClamped = delay < 0 ? 0 : delay;
+        const delayStr = formatTime(delayClamped) + ` (${delayClamped.toFixed(0)}s)`;
+        const marchStr = formatTime(e.seconds) + ` (${e.seconds.toFixed(0)}s)`;
+
+        let startClockStr = '';
+        if (baseDate) {
+          const startDate = new Date(baseDate.getTime() + delayClamped * 1000);
+          startClockStr = formatClockTime(startDate);
+        }
+
+        const tr = document.createElement('tr');
+
+        const nameTd = document.createElement('td');
+        nameTd.textContent = e.name;
+
+        const marchTd = document.createElement('td');
+        marchTd.textContent = marchStr;
+
+        const delayTd = document.createElement('td');
+        delayTd.textContent = delayStr;
+
+        const startTd = document.createElement('td');
+        startTd.textContent = baseDate ? startClockStr : '-';
+
+        tr.appendChild(nameTd);
+        tr.appendChild(marchTd);
+        tr.appendChild(delayTd);
+        tr.appendChild(startTd);
+
+        resultsBody.appendChild(tr);
+      }
+
+      resultsDiv.style.display = 'block';
+    }
+
+    addRowBtn.addEventListener('click', () => addRow());
+    clearBtn.addEventListener('click', () => {
+      rallyBody.innerHTML = '';
+      resultsDiv.style.display = 'none';
+      messageDiv.textContent = '';
+      messageDiv.className = '';
+      summaryDiv.innerHTML = '';
+      baseStartInput.value = '';
+      // add a few blank rows again
+      for (let i = 0; i < 3; i++) addRow();
+    });
+    calcBtn.addEventListener('click', calculate);
+
+    // Start with a few default rows
+    addRow('Saul');
+    addRow('Amadeus');
+    addRow('Jabel');
+  </script>
+</body>
+</html>
