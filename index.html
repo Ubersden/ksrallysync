@@ -457,6 +457,11 @@
     let globalTotalDuration = 0;  // rally time + max march
     let lastImpactBeepSecond = null;
 
+    // Voice state
+    let marchVoiceAnnounced = false;
+    let hypeSpoken = false;
+    let lastCountdownSpoken = null;
+
     // Audio beep
     let audioCtx = null;
 
@@ -549,6 +554,9 @@
       liveStatus.textContent = '';
       liveStatus.classList.remove('flash');
       lastImpactBeepSecond = null;
+      marchVoiceAnnounced = false;
+      hypeSpoken = false;
+      lastCountdownSpoken = null;
       schedule.forEach(item => {
         item.rowEl.style.outline = 'none';
       });
@@ -634,7 +642,7 @@
         const baseName = baseEntries[0].name;
         startLiveBtn.textContent = `▶ Go ${baseName}`;
         startLiveBtn.classList.add('go-alert');
-        goHint.textContent = `${baseName} must launch first to sync all rallies.`;
+        goHint.textContent = `${baseName} must launch first to sync all rallies.';
       } else {
         startLiveBtn.textContent = '▶ Go Base Rally';
         startLiveBtn.classList.add('go-alert');
@@ -708,6 +716,12 @@
         const elapsed = (Date.now() - liveStartTime) / 1000;
         const impactRemaining = globalTotalDuration - elapsed;
 
+        // Announce when the marches actually start (rally timer finished)
+        if (!marchVoiceAnnounced && elapsed >= globalRallySeconds) {
+          speak('Marching now!');
+          marchVoiceAnnounced = true;
+        }
+
         // Beep + speak + vibrate when each rally's delay is reached
         for (const item of schedule) {
           if (!item.launched && elapsed >= item.delay) {
@@ -738,11 +752,32 @@
           return;
         }
 
-        // Last 10 seconds countdown beeps (to impact)
+        // Last 10 seconds countdown beeps (to impact) + hype + 5–1 countdown
         const impactSecInt = Math.ceil(impactRemaining);
-        if (impactSecInt <= 10 && impactSecInt > 0 && impactSecInt !== lastImpactBeepSecond) {
-          beep();
-          lastImpactBeepSecond = impactSecInt;
+        if (impactSecInt <= 10 && impactSecInt > 0) {
+          if (impactSecInt !== lastImpactBeepSecond) {
+            beep();
+            lastImpactBeepSecond = impactSecInt;
+
+            // 10 seconds: random hype line
+            if (impactSecInt === 10 && !hypeSpoken) {
+              const lines = [
+                "Let's go!",
+                "Come on!",
+                "HONK!",
+                "Give me bread!"
+              ];
+              const line = lines[Math.floor(Math.random() * lines.length)];
+              speak(line);
+              hypeSpoken = true;
+            }
+
+            // 5–1 seconds: numeric countdown
+            if (impactSecInt <= 5 && impactSecInt >= 1 && lastCountdownSpoken !== impactSecInt) {
+              speak(String(impactSecInt));
+              lastCountdownSpoken = impactSecInt;
+            }
+          }
         }
 
         // Find next rally to launch
