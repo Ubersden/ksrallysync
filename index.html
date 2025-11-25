@@ -179,19 +179,45 @@
       min-height: 3.2rem;
     }
 
-    #liveStatus .next-name {
-      font-weight: 700;
-      color: #facc15;
+    .next-block {
+      text-align: center;
+      margin-bottom: 0.5rem;
     }
 
-    #liveStatus .next-time {
-      font-weight: 700;
-      color: #22c55e;
+    .next-label {
+      font-size: 0.9rem;
+      color: #9ca3af;
+      margin-bottom: 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
     }
 
-    #liveStatus .impact-time {
-      font-weight: 600;
-      color: #38bdf8;
+    .next-name-big {
+      font-size: 2.4rem;
+      font-weight: 800;
+      margin-bottom: 0.15rem;
+    }
+
+    .next-time-big {
+      font-size: 2.2rem;
+      font-weight: 700;
+    }
+
+    .impact-line {
+      font-size: 1rem;
+      margin-top: 0.35rem;
+      color: #e5e7eb;
+    }
+
+    /* Urgency colours */
+    .urgency-low {
+      color: #22c55e; /* green */
+    }
+    .urgency-mid {
+      color: #f97316; /* orange */
+    }
+    .urgency-high {
+      color: #ef4444; /* red */
     }
 
     .flash {
@@ -224,6 +250,15 @@
       }
     }
 
+    /* Live mode: hide setup/results, show only live HUD */
+    body.live-mode .card > :not(.live) {
+      display: none;
+    }
+
+    body.live-mode .live {
+      margin-top: 0;
+    }
+
     @media (max-width: 600px) {
       body {
         padding: 0.75rem;
@@ -249,6 +284,13 @@
       }
       .btn-group > * {
         width: 100%;
+      }
+
+      .next-name-big {
+        font-size: 2rem;
+      }
+      .next-time-big {
+        font-size: 1.8rem;
       }
     }
   </style>
@@ -278,7 +320,6 @@
             <option value="30">30 min</option>
             <option value="60">60 min</option>
           </select>
-
         </label>
       </div>
     </div>
@@ -435,6 +476,13 @@
       osc.stop(now + 0.15);
     }
 
+    function speak(text) {
+      if ('speechSynthesis' in window) {
+        const u = new SpeechSynthesisUtterance(text);
+        window.speechSynthesis.speak(u);
+      }
+    }
+
     function addRow(name = '', marchTime = '') {
       const tr = document.createElement('tr');
 
@@ -456,7 +504,7 @@
       timeInput.classList.add('march-time');
       timeTd.appendChild(timeInput);
 
-      // Delay After Base (s) - will be filled after calculation
+      // Delay After Base (s) - filled after calculation
       const delayTd = document.createElement('td');
       delayTd.textContent = '-';
 
@@ -484,7 +532,7 @@
       return m + ':' + String(s).padStart(2, '0');
     }
 
-    function resetLive() {
+    function resetLiveState(fullReset = false) {
       if (liveInterval) {
         clearInterval(liveInterval);
         liveInterval = null;
@@ -492,14 +540,17 @@
       liveStartTime = null;
       liveStatus.textContent = '';
       liveStatus.classList.remove('flash');
-      startLiveBtn.disabled = false;
-      startLiveBtn.textContent = '▶ Start First Rally';
-      startLiveBtn.classList.remove('go-alert');
-      if (goHint) goHint.textContent = '';
       lastImpactBeepSecond = null;
       schedule.forEach(item => {
         item.rowEl.style.outline = 'none';
       });
+      startLiveBtn.disabled = false;
+      if (fullReset) {
+        startLiveBtn.textContent = '▶ Start First Rally';
+        startLiveBtn.classList.remove('go-alert');
+        goHint.textContent = '';
+        document.body.classList.remove('live-mode');
+      }
     }
 
     function calculate() {
@@ -509,7 +560,7 @@
       resultsBody.innerHTML = '';
       summaryDiv.innerHTML = '';
       liveSection.style.display = 'none';
-      resetLive();
+      resetLiveState(true);
       schedule = [];
 
       const rallyMinutes = parseInt(globalRallyTimeSelect.value, 10) || 5;
@@ -575,16 +626,12 @@
         const baseName = baseEntries[0].name;
         startLiveBtn.textContent = `▶ Go ${baseName}`;
         startLiveBtn.classList.add('go-alert');
-        if (goHint) {
-          goHint.textContent = `${baseName} must launch first to sync all rallies.`;
-        }
+        goHint.textContent = `${baseName} must launch first to sync all rallies.`;
       } else {
         startLiveBtn.textContent = '▶ Go Base Rally';
         startLiveBtn.classList.add('go-alert');
-        if (goHint) {
-          const names = baseEntries.map(e => e.name).join(', ');
-          goHint.textContent = `Any base rally (slowest march: ${names}) can launch first to sync all rallies.`;
-        }
+        const names = baseEntries.map(e => e.name).join(', ');
+        goHint.textContent = `Any base rally (slowest march: ${names}) can launch first to sync all rallies.`;
       }
 
       summaryDiv.innerHTML = `
@@ -643,39 +690,49 @@
     function startLiveCountdown() {
       if (!schedule.length) return;
 
-      // Once countdown is live, stop pulsing the button
-      startLiveBtn.classList.remove('go-alert');
+      initAudio();
+      if (liveInterval) {
+        clearInterval(liveInterval);
+        liveInterval = null;
+      }
 
-      resetLive(); // but we don't want to reset button text now, so we re-set it below
-      // We just reset live state, not full schedule
       liveStartTime = Date.now();
       startLiveBtn.disabled = true;
+      startLiveBtn.classList.remove('go-alert'); // stop pulsing once live
       liveStatus.classList.add('flash');
-
-      // Re-apply hint text after resetLive cleared it
-      // (We don't strictly need this, but it keeps the hint visible during countdown)
+      document.body.classList.add('live-mode');   // enter HUD mode
 
       liveInterval = setInterval(() => {
         const elapsed = (Date.now() - liveStartTime) / 1000;
         const impactRemaining = globalTotalDuration - elapsed;
 
-        // Beep when each rally's delay is reached
+        // Beep + speak + vibrate when each rally's delay is reached
         for (const item of schedule) {
           if (!item.launched && elapsed >= item.delay) {
             item.launched = true;
             beep();
+            speak(`Go ${item.name}`);
+            if (navigator.vibrate) {
+              navigator.vibrate([150, 80, 150]);
+            }
           }
         }
 
         // Impact reached
         if (impactRemaining <= 0) {
           liveStatus.classList.remove('flash');
-          liveStatus.innerHTML = '🎯 Target should be hit now. All synced rallies have landed.';
+          liveStatus.innerHTML = `
+            <div class="next-block">
+              <div class="next-label">Impact</div>
+              <div class="next-name-big urgency-high">Target Hit</div>
+            </div>
+          `;
           schedule.forEach(item => {
             item.rowEl.style.outline = 'none';
           });
           clearInterval(liveInterval);
           liveInterval = null;
+          document.body.classList.remove('live-mode'); // exit HUD mode
           return;
         }
 
@@ -698,19 +755,39 @@
 
         if (next) {
           const remaining = next.delay - elapsed;
+
+          // Urgency colour
+          let urgencyClass = 'urgency-low';
+          if (remaining <= 1) {
+            urgencyClass = 'urgency-high';
+          } else if (remaining <= 3) {
+            urgencyClass = 'urgency-mid';
+          }
+
           schedule.forEach(item => item.rowEl.style.outline = 'none');
           next.rowEl.style.outline = '2px solid rgba(250, 204, 21, 0.9)';
 
           liveStatus.innerHTML = `
-            Next rally: <span class="next-name">${next.name}</span>
-            in <span class="next-time">${remaining.toFixed(1)}s</span><br>
-            Time until impact: <span class="impact-time">${impactRemaining.toFixed(1)}s</span>
+            <div class="next-block">
+              <div class="next-label">Next rally</div>
+              <div class="next-name-big ${urgencyClass}">${next.name}</div>
+              <div class="next-time-big ${urgencyClass}">${remaining.toFixed(1)}s</div>
+            </div>
+            <div class="impact-line">
+              Impact in <span class="impact-time">${impactRemaining.toFixed(1)}s</span>
+            </div>
           `;
         } else {
+          // All rallies created, just show impact countdown
           schedule.forEach(item => item.rowEl.style.outline = 'none');
           liveStatus.innerHTML = `
-            ✅ All rallies created.<br>
-            Time until impact: <span class="impact-time">${impactRemaining.toFixed(1)}s</span>
+            <div class="next-block">
+              <div class="next-label">All rallies created</div>
+              <div class="next-name-big urgency-low">Waiting</div>
+            </div>
+            <div class="impact-line">
+              Impact in <span class="impact-time">${impactRemaining.toFixed(1)}s</span>
+            </div>
           `;
         }
       }, 100);
@@ -725,7 +802,8 @@
       liveSection.style.display = 'none';
       messageDiv.textContent = '';
       messageDiv.className = '';
-      resetLive();
+      resetLiveState(true);
+      schedule = [];
       addRow();
       addRow();
       addRow();
