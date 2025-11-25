@@ -211,13 +211,13 @@
 
     /* Urgency colours */
     .urgency-low {
-      color: #22c55e; /* green */
+      color: #22c55e;
     }
     .urgency-mid {
-      color: #f97316; /* orange */
+      color: #f97316;
     }
     .urgency-high {
-      color: #ef4444; /* red */
+      color: #ef4444;
     }
 
     .flash {
@@ -225,32 +225,20 @@
     }
 
     @keyframes flash {
-      0%, 100% {
-        background-color: transparent;
-      }
-      50% {
-        background-color: rgba(250, 204, 21, 0.16);
-      }
+      0%, 100% { background-color: transparent; }
+      50% { background-color: rgba(250, 204, 21, 0.16); }
     }
 
-    /* Go button alert state (red + subtle pulse) */
     .go-alert {
-      background: #dc2626; /* red-600 */
+      background: #dc2626;
       animation: goflash 1s infinite;
     }
 
     @keyframes goflash {
-      0%, 100% {
-        transform: scale(1);
-        filter: brightness(1);
-      }
-      50% {
-        transform: scale(1.05);
-        filter: brightness(1.2);
-      }
+      0%, 100% { transform: scale(1); filter: brightness(1); }
+      50% { transform: scale(1.05); filter: brightness(1.2); }
     }
 
-    /* Live mode: hide setup/results, show only live HUD */
     body.live-mode .card > :not(.live) {
       display: none;
     }
@@ -260,38 +248,15 @@
     }
 
     @media (max-width: 600px) {
-      body {
-        padding: 0.75rem;
-      }
-      .card {
-        padding: 1rem;
-      }
-      th, td {
-        font-size: 0.8rem;
-      }
-      button {
-        width: 100%;
-        justify-content: center;
-      }
-      .btn-row {
-        flex-direction: column;
-        align-items: stretch;
-      }
-      .btn-group {
-        width: 100%;
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      .btn-group > * {
-        width: 100%;
-      }
-
-      .next-name-big {
-        font-size: 2rem;
-      }
-      .next-time-big {
-        font-size: 1.8rem;
-      }
+      body { padding: 0.75rem; }
+      .card { padding: 1rem; }
+      th, td { font-size: 0.8rem; }
+      button { width: 100%; justify-content: center; }
+      .btn-row { flex-direction: column; align-items: stretch; }
+      .btn-group { width: 100%; flex-direction: column; align-items: flex-start; }
+      .btn-group > * { width: 100%; }
+      .next-name-big { font-size: 2rem; }
+      .next-time-big { font-size: 1.8rem; }
     }
   </style>
 </head>
@@ -328,8 +293,9 @@
     <table>
       <thead>
         <tr>
-          <th style="width: 15%;">Alliance Tag</th>
-          <th style="width: 35%;">Caller Name</th>
+          <th style="width: 12%;">Alliance Tag</th>
+          <th style="width: 28%;">Caller Name</th>
+          <th style="width: 10%;">Pet</th>
           <th style="width: 30%;">March Time (s)</th>
           <th style="width: 20%;">Delay After Base (s)</th>
         </tr>
@@ -355,6 +321,7 @@
           <tr>
             <th>Alliance</th>
             <th>Caller</th>
+            <th>Pet</th>
             <th>March (s)</th>
             <th>Delay After Base (s)</th>
           </tr>
@@ -449,7 +416,7 @@
     const goHint = document.getElementById('goHint');
 
     // Live countdown
-    let schedule = [];          // [{ tag, name, label, delay, rowEl, launched }]
+    let schedule = [];          // [{ tag, name, petBuff, label, hudLabel, delay, rowEl, launched }]
     let liveInterval = null;
     let liveStartTime = null;
 
@@ -507,7 +474,11 @@
       return 'Unnamed';
     }
 
-    function addRow(tag = '', name = '', marchTime = '') {
+    function makeHudLabel(label, petBuff) {
+      return petBuff ? `🐾 ${label}` : label;
+    }
+
+    function addRow(tag = '', name = '', marchTime = '', petBuff = false) {
       const tr = document.createElement('tr');
 
       // Alliance tag
@@ -528,6 +499,16 @@
       nameInput.classList.add('caller-name');
       nameTd.appendChild(nameInput);
 
+      // Pet buff checkbox
+      const petTd = document.createElement('td');
+      const petInput = document.createElement('input');
+      petInput.type = 'checkbox';
+      petInput.classList.add('pet-buff');
+      petInput.title = 'Pet buff active';
+      petInput.checked = !!petBuff;
+      petTd.style.textAlign = 'center';
+      petTd.appendChild(petInput);
+
       // March time in seconds
       const timeTd = document.createElement('td');
       const timeInput = document.createElement('input');
@@ -543,6 +524,7 @@
 
       tr.appendChild(tagTd);
       tr.appendChild(nameTd);
+      tr.appendChild(petTd);
       tr.appendChild(timeTd);
       tr.appendChild(delayTd);
 
@@ -609,15 +591,17 @@
       for (const row of rows) {
         const tagInput = row.querySelector('.caller-tag');
         const nameInput = row.querySelector('.caller-name');
+        const petInput = row.querySelector('.pet-buff');
         const marchInput = row.querySelector('.march-time');
 
-        if (!nameInput || !marchInput || !tagInput) continue;
+        if (!nameInput || !marchInput || !tagInput || !petInput) continue;
 
         const tag = tagInput.value.trim();
         const name = nameInput.value.trim();
         const timeStr = marchInput.value.trim();
+        const petBuff = !!petInput.checked;
 
-        if (!tag && !name && !timeStr) {
+        if (!tag && !name && !timeStr && !petBuff) {
           continue; // ignore empty row
         }
 
@@ -637,6 +621,7 @@
         entries.push({
           tag,
           name: name || 'Unnamed',
+          petBuff,
           marchSeconds: secs,
           rowEl: row
         });
@@ -657,9 +642,12 @@
       if (baseEntries.length === 1) {
         const be = baseEntries[0];
         const label = makeLabel(be.tag, be.name);
-        baseLabel = `Base (slowest) rally is <strong>${label}</strong> with march <strong>${globalMaxMarch}s (${formatTime(globalMaxMarch)})</strong>.`;
+        const hudLabel = makeHudLabel(label, be.petBuff);
+        baseLabel = `Base (slowest) rally is <strong>${hudLabel}</strong> with march <strong>${globalMaxMarch}s (${formatTime(globalMaxMarch)})</strong>.`;
       } else {
-        const labels = baseEntries.map(e => makeLabel(e.tag, e.name)).join(', ');
+        const labels = baseEntries
+          .map(e => makeHudLabel(makeLabel(e.tag, e.name), e.petBuff))
+          .join(', ');
         baseLabel = `Multiple base rallies share the slowest march time <strong>${globalMaxMarch}s (${formatTime(globalMaxMarch)})</strong>: <strong>${labels}</strong>. Choose any one as your base.`;
       }
 
@@ -667,13 +655,16 @@
       if (baseEntries.length === 1) {
         const be = baseEntries[0];
         const label = makeLabel(be.tag, be.name);
-        startLiveBtn.textContent = `▶ Go ${label}`;
+        const hudLabel = makeHudLabel(label, be.petBuff);
+        startLiveBtn.textContent = `▶ Go ${hudLabel}`;
         startLiveBtn.classList.add('go-alert');
-        goHint.textContent = `${label} must launch first to sync all rallies.`;
+        goHint.textContent = `${hudLabel} must launch first to sync all rallies.`;
       } else {
         startLiveBtn.textContent = '▶ Go Base Rally';
         startLiveBtn.classList.add('go-alert');
-        const labels = baseEntries.map(e => makeLabel(e.tag, e.name)).join(', ');
+        const labels = baseEntries
+          .map(e => makeHudLabel(makeLabel(e.tag, e.name), e.petBuff))
+          .join(', ');
         goHint.textContent = `Any base rally (slowest march: ${labels}) can launch first to sync all rallies.`;
       }
 
@@ -690,9 +681,10 @@
       entries.forEach(e => {
         const delay = Math.max(0, globalMaxMarch - e.marchSeconds);
         const label = makeLabel(e.tag, e.name);
+        const hudLabel = makeHudLabel(label, e.petBuff);
 
         // Update delay cell in the TOP table (input rows)
-        const originalDelayCell = e.rowEl.children[3]; // 4th <td>
+        const originalDelayCell = e.rowEl.children[4]; // 5th <td>
         if (originalDelayCell) {
           originalDelayCell.textContent = `${delay}s`;
         }
@@ -706,6 +698,9 @@
         const nameTd = document.createElement('td');
         nameTd.textContent = e.name;
 
+        const petTd = document.createElement('td');
+        petTd.textContent = e.petBuff ? '🐾' : '';
+
         const marchTd = document.createElement('td');
         marchTd.textContent = `${e.marchSeconds}s`;
 
@@ -714,6 +709,7 @@
 
         tr.appendChild(tagTd);
         tr.appendChild(nameTd);
+        tr.appendChild(petTd);
         tr.appendChild(marchTd);
         tr.appendChild(delayTd);
         resultsBody.appendChild(tr);
@@ -721,7 +717,9 @@
         schedule.push({
           tag: e.tag,
           name: e.name,
+          petBuff: e.petBuff,
           label,
+          hudLabel,
           delay,
           rowEl: tr,
           launched: false
@@ -841,7 +839,7 @@
           liveStatus.innerHTML = `
             <div class="next-block">
               <div class="next-label">Next rally</div>
-              <div class="next-name-big ${urgencyClass}">${next.label}</div>
+              <div class="next-name-big ${urgencyClass}">${next.hudLabel}</div>
               <div class="next-time-big ${urgencyClass}">${remaining.toFixed(1)}s</div>
             </div>
             <div class="impact-line">
@@ -939,11 +937,11 @@
       // Clear existing rows and load a sample scenario
       rallyBody.innerHTML = '';
 
-      addRow('Ksa', 'Saul', '40');
-      addRow('Ksa', 'Amadeus', '47');
-      addRow('Ksa', 'Jabel', '53');
-      addRow('Ksa', 'Helga', '60');
-      addRow('Ksa', 'Chenko', '68');
+      addRow('Ksa', 'Saul', '40', true);
+      addRow('Ksa', 'Amadeus', '47', false);
+      addRow('Ksa', 'Jabel', '53', true);
+      addRow('Ksa', 'Helga', '60', false);
+      addRow('Ksa', 'Chenko', '68', true);
 
       // Auto-run calculation and jump into HUD mode
       calculate();
