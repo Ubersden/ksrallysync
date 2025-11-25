@@ -309,6 +309,7 @@
       <div class="btn-group">
         <button type="button" id="addRowBtn">＋ Add Rally</button>
         <button type="button" class="secondary" id="clearBtn">Clear All</button>
+        <button type="button" class="secondary" id="trainingBtn">🧪 KVK Training Mode</button>
       </div>
       <div class="btn-group">
         <label class="base-time">
@@ -430,6 +431,7 @@
     const rallyBody = document.getElementById('rallyBody');
     const addRowBtn = document.getElementById('addRowBtn');
     const clearBtn = document.getElementById('clearBtn');
+    const trainingBtn = document.getElementById('trainingBtn');
     const calcBtn = document.getElementById('calcBtn');
     const messageDiv = document.getElementById('message');
     const resultsDiv = document.getElementById('results');
@@ -836,6 +838,32 @@
       document.body.classList.remove('live-mode');
     }
 
+    function loadTrainingScenario() {
+      // Quick KVK practice: prefill some example callers + times and auto-calc
+      resetLiveState(true);
+      messageDiv.textContent = '';
+      messageDiv.className = '';
+      resultsDiv.style.display = 'none';
+      resultsBody.innerHTML = '';
+      summaryDiv.innerHTML = '';
+      liveSection.style.display = 'none';
+
+      // Use 1-minute rally for short training runs
+      globalRallyTimeSelect.value = '1';
+
+      // Clear existing rows and load a sample scenario
+      rallyBody.innerHTML = '';
+
+      addRow('Saul', '40');
+      addRow('Amadeus', '47');
+      addRow('Jabel', '53');
+      addRow('Helga', '60');
+      addRow('Chenko', '68');
+
+      // Auto-run calculation and jump into HUD mode
+      calculate();
+    }
+
     // Event hooks
     addRowBtn.addEventListener('click', () => addRow());
     clearBtn.addEventListener('click', () => {
@@ -851,6 +879,7 @@
       addRow();
       addRow();
     });
+    trainingBtn.addEventListener('click', loadTrainingScenario);
     calcBtn.addEventListener('click', calculate);
     startLiveBtn.addEventListener('click', startLiveCountdown);
     restartLiveBtn.addEventListener('click', restartLive);
