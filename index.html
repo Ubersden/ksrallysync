@@ -366,6 +366,7 @@
       <div class="btn-row" style="margin-bottom:0.5rem;">
         <div class="btn-group">
           <button type="button" id="startLiveBtn">▶ Start First Rally</button>
+          <button type="button" class="secondary" id="restartLiveBtn">🔁 Restart Rally</button>
           <button type="button" class="secondary" id="cancelLiveBtn">⏹ Cancel Rally</button>
         </div>
         <span class="base-time">
@@ -439,6 +440,7 @@
     const liveSection = document.getElementById('liveSection');
     const liveStatus = document.getElementById('liveStatus');
     const startLiveBtn = document.getElementById('startLiveBtn');
+    const restartLiveBtn = document.getElementById('restartLiveBtn');
     const cancelLiveBtn = document.getElementById('cancelLiveBtn');
     const goHint = document.getElementById('goHint');
 
@@ -690,24 +692,15 @@
       liveStatus.textContent = 'Ready. Click the Go button when the base rally is created.';
       startLiveBtn.disabled = false;
 
-      // 🔥 Enter focused HUD mode as soon as we calculate
+      // Enter focused HUD mode as soon as we calculate
       document.body.classList.add('live-mode');
     }
 
-    function startLiveCountdown() {
-      if (!schedule.length) return;
-
-      initAudio();
+    function runLiveLoop() {
       if (liveInterval) {
         clearInterval(liveInterval);
         liveInterval = null;
       }
-
-      liveStartTime = Date.now();
-      startLiveBtn.disabled = true;
-      startLiveBtn.classList.remove('go-alert'); // stop pulsing once live
-      liveStatus.classList.add('flash');
-      document.body.classList.add('live-mode');   // ensure HUD mode
 
       liveInterval = setInterval(() => {
         const elapsed = (Date.now() - liveStartTime) / 1000;
@@ -800,6 +793,42 @@
       }, 100);
     }
 
+    function startLiveCountdown() {
+      if (!schedule.length) return;
+
+      initAudio();
+      resetLiveState(false); // clear any previous loop but keep HUD + labels
+      document.body.classList.add('live-mode');
+
+      liveStartTime = Date.now();
+      startLiveBtn.disabled = true;
+      startLiveBtn.classList.remove('go-alert');
+      liveStatus.classList.add('flash');
+
+      // ensure all rallies start as not launched
+      schedule.forEach(item => item.launched = false);
+
+      runLiveLoop();
+    }
+
+    function restartLive() {
+      if (!schedule.length) return;
+
+      initAudio();
+      resetLiveState(false); // stop current loop, keep HUD
+      document.body.classList.add('live-mode');
+
+      // restart from t = 0 with same schedule
+      liveStartTime = Date.now();
+      startLiveBtn.disabled = true;
+      startLiveBtn.classList.remove('go-alert');
+      liveStatus.classList.add('flash');
+
+      schedule.forEach(item => item.launched = false);
+
+      runLiveLoop();
+    }
+
     function cancelLive() {
       // Stop timers, exit HUD, but leave current rows & delays visible for quick tweaks
       resetLiveState(true);
@@ -824,6 +853,7 @@
     });
     calcBtn.addEventListener('click', calculate);
     startLiveBtn.addEventListener('click', startLiveCountdown);
+    restartLiveBtn.addEventListener('click', restartLive);
     cancelLiveBtn.addEventListener('click', cancelLive);
 
     // Default empty rows on load
