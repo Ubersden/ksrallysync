@@ -240,14 +240,11 @@
 </head>
 <body>
   <h1>Kingshot Rally Sync Tool</h1>
-  <div id="utcClock" style="text-align:center; margin-bottom:1rem; color:#38bdf8; font-size:1rem;">
-  UTC Time: --
-  </div>
   <div class="card">
     <p class="description">
       Select a common <strong>rally time</strong> (join window) for all rallies, then enter each rally caller and their
       <strong>march time</strong> to the target.<br>
-      March times can be in <strong>mm:ss</strong> (e.g. <code>0:37</code>) or plain seconds (e.g. <code>37</code>).<br>
+      Enter march times in <strong>seconds only</strong> (e.g. <code>37</code>).<br>
       The tool syncs hits using <strong>rally time + march time</strong> so all rallies land together.
     </p>
 
@@ -267,7 +264,7 @@
           </select>
         </label>
         <label class="base-time">
-          Base rally creation time (UTC optional):
+          Base rally creation time (optional):
           <input type="time" id="baseStartTime">
         </label>
       </div>
@@ -277,7 +274,7 @@
       <thead>
         <tr>
           <th style="width: 50%;">Caller Name</th>
-          <th style="width: 30%;">March Time (mm:ss or seconds)</th>
+          <th style="width: 30%;">March Time (seconds)</th>
           <th style="width: 20%;">Remove</th>
         </tr>
       </thead>
@@ -372,19 +369,6 @@
   </footer>
 
   <script>
-    function updateUTCClock() {
-    const now = new Date();
-    const hh = String(now.getUTCHours()).padStart(2, '0');
-    const mm = String(now.getUTCMinutes()).padStart(2, '0');
-    const ss = String(now.getUTCSeconds()).padStart(2, '0');
-    document.getElementById('utcClock').textContent = `UTC Time: ${hh}:${mm}:${ss}`;
-  }
-  setInterval(updateUTCClock, 1000);
-  updateUTCClock();
-
-
-
-    
     const rallyBody = document.getElementById('rallyBody');
     const addRowBtn = document.getElementById('addRowBtn');
     const clearBtn = document.getElementById('clearBtn');
@@ -449,16 +433,16 @@
       const nameTd = document.createElement('td');
       const nameInput = document.createElement('input');
       nameInput.type = 'text';
-      nameInput.placeholder = 'name...';
+      nameInput.placeholder = 'Name';
       nameInput.value = name;
       nameInput.classList.add('caller-name');
       nameTd.appendChild(nameInput);
 
-      // March time
+      // March time (seconds)
       const timeTd = document.createElement('td');
       const timeInput = document.createElement('input');
       timeInput.type = 'text';
-      timeInput.placeholder = '0:37 or 37';
+      timeInput.placeholder = 'seconds (e.g. 37)';
       timeInput.value = marchTime;
       timeInput.classList.add('march-time');
       timeTd.appendChild(timeInput);
@@ -481,24 +465,16 @@
       rallyBody.appendChild(tr);
     }
 
-    // Parse "mm:ss" or "seconds" into total seconds
+    // Parse seconds-only time
     function parseTime(str) {
       if (!str) return NaN;
       str = str.trim();
       if (!str) return NaN;
 
-      if (str.includes(':')) {
-        const parts = str.split(':');
-        if (parts.length !== 2) return NaN;
-        const m = parseFloat(parts[0]);
-        const s = parseFloat(parts[1]);
-        if (isNaN(m) || isNaN(s)) return NaN;
-        return m * 60 + s;
-      } else {
-        const v = parseFloat(str);
-        if (isNaN(v)) return NaN;
-        return v;
-      }
+      const v = parseFloat(str);
+      if (isNaN(v) || v <= 0) return NaN;
+
+      return v;
     }
 
     // Format seconds as mm:ss
@@ -514,13 +490,10 @@
       if (!timeStr) return null;
       const [h, m] = timeStr.split(':').map(Number);
       if (isNaN(h) || isNaN(m)) return null;
-    
-      // Create date based on UTC time (as game time works in UTC)
       const now = new Date();
-      now.setUTCHours(h, m, 0, 0);
+      now.setHours(h, m, 0, 0);
       return now;
     }
-
 
     function formatClockTime(date) {
       const h = String(date.getHours()).padStart(2, '0');
@@ -575,14 +548,14 @@
         }
 
         if (!timeStr) {
-          messageDiv.textContent = 'Each rally needs a march time.';
+          messageDiv.textContent = 'Each rally needs a march time in seconds.';
           messageDiv.className = 'error';
           return;
         }
 
         const marchSeconds = parseTime(timeStr);
         if (isNaN(marchSeconds) || marchSeconds <= 0) {
-          messageDiv.textContent = `Invalid march time "${timeStr}". Use mm:ss (0:37) or seconds (37).`;
+          messageDiv.textContent = `Invalid march time "${timeStr}". Enter march time in seconds only (e.g. 37).`;
           messageDiv.className = 'error';
           return;
         }
@@ -606,10 +579,10 @@
 
       let baseLabel;
       if (baseEntries.length === 1) {
-        baseLabel = `Base (slowest) rally is <strong>${baseEntries[0].name}</strong> with march <strong>${formatTime(globalMaxMarch)}</strong>.`;
+        baseLabel = `Base (slowest) rally is <strong>${baseEntries[0].name}</strong> with march <strong>${formatTime(globalMaxMarch)} (${globalMaxMarch.toFixed(0)}s)</strong>.`;
       } else {
         const names = baseEntries.map(e => e.name).join(', ');
-        baseLabel = `Multiple rallies share the slowest march time <strong>${formatTime(globalMaxMarch)}</strong>: <strong>${names}</strong>. Choose any one as your base.`;
+        baseLabel = `Multiple rallies share the slowest march time <strong>${formatTime(globalMaxMarch)} (${globalMaxMarch.toFixed(0)}s)</strong>: <strong>${names}</strong>. Choose any one as your base.`;
       }
 
       const baseTimeStr = baseStartInput.value;
@@ -625,7 +598,7 @@
         <p class="description">
           ${baseLabel}<br>
           Common rally time for all rallies: <strong>${rallyMinutes} min (${formatTime(globalRallySeconds)})</strong>.<br>
-          From base rally creation to impact: <strong>${formatTime(globalTotalDuration)}</strong> (rally + base march).<br>
+          From base rally creation to impact: <strong>${formatTime(globalTotalDuration)} (${globalTotalDuration.toFixed(0)}s)</strong> (rally + base march).<br>
           Click "Start First Rally" when you <strong>create the base rally</strong> in-game (t = 0)${baseDate ? ', or at <strong>' + baseTimeStr + '</strong> real time' : ''}.<br>
           Create each other rally after the listed delay so that <strong>rally time + march time</strong> sync the impact.
         </p>
@@ -783,7 +756,7 @@
       liveSection.style.display = 'none';
       resetLive();
       // add a few blank rows again
-      for (let i = 0; i < 3; i++) addRow();
+      for (let i = 0; i < 3; i++) addRow('Name');
     });
     calcBtn.addEventListener('click', calculate);
     startLiveBtn.addEventListener('click', startLiveCountdown);
@@ -792,7 +765,6 @@
     addRow('Name');
     addRow('Name');
     addRow('Name');
-
   </script>
 </body>
 </html>
