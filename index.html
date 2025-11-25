@@ -240,6 +240,9 @@
 </head>
 <body>
   <h1>Kingshot Rally Sync Tool</h1>
+  <div id="utcClock" style="text-align:center; margin-bottom:1rem; color:#38bdf8; font-size:1rem;">
+  UTC Time: --
+  </div>
   <div class="card">
     <p class="description">
       Select a common <strong>rally time</strong> (join window) for all rallies, then enter each rally caller and their
@@ -264,7 +267,7 @@
           </select>
         </label>
         <label class="base-time">
-          Base rally creation time (optional):
+          Base rally creation time (UTC optional):
           <input type="time" id="baseStartTime">
         </label>
       </div>
@@ -369,6 +372,19 @@
   </footer>
 
   <script>
+    function updateUTCClock() {
+    const now = new Date();
+    const hh = String(now.getUTCHours()).padStart(2, '0');
+    const mm = String(now.getUTCMinutes()).padStart(2, '0');
+    const ss = String(now.getUTCSeconds()).padStart(2, '0');
+    document.getElementById('utcClock').textContent = `UTC Time: ${hh}:${mm}:${ss}`;
+  }
+  setInterval(updateUTCClock, 1000);
+  updateUTCClock();
+
+
+
+    
     const rallyBody = document.getElementById('rallyBody');
     const addRowBtn = document.getElementById('addRowBtn');
     const clearBtn = document.getElementById('clearBtn');
@@ -498,10 +514,13 @@
       if (!timeStr) return null;
       const [h, m] = timeStr.split(':').map(Number);
       if (isNaN(h) || isNaN(m)) return null;
+    
+      // Create date based on UTC time (as game time works in UTC)
       const now = new Date();
-      now.setHours(h, m, 0, 0);
+      now.setUTCHours(h, m, 0, 0);
       return now;
     }
+
 
     function formatClockTime(date) {
       const h = String(date.getHours()).padStart(2, '0');
