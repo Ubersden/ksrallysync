@@ -58,7 +58,8 @@
     }
 
     input[type="text"],
-    input[type="time"] {
+    input[type="time"],
+    select {
       width: 100%;
       padding: 0.3rem 0.4rem;
       border-radius: 0.4rem;
@@ -69,7 +70,8 @@
     }
 
     input[type="text"]:focus,
-    input[type="time"]:focus {
+    input[type="time"]:focus,
+    select:focus {
       outline: none;
       border-color: #facc15;
       box-shadow: 0 0 0 1px #facc15;
@@ -88,6 +90,7 @@
       display: flex;
       gap: 0.5rem;
       flex-wrap: wrap;
+      align-items: center;
     }
 
     button {
@@ -173,9 +176,9 @@
 
     #liveStatus {
       margin-top: 0.75rem;
-      font-size: 1.1rem;
+      font-size: 1.05rem;
       text-align: center;
-      min-height: 2.2rem;
+      min-height: 3.2rem;
     }
 
     #liveStatus .next-name {
@@ -186,6 +189,11 @@
     #liveStatus .next-time {
       font-weight: 700;
       color: #22c55e;
+    }
+
+    #liveStatus .impact-time {
+      font-weight: 600;
+      color: #38bdf8;
     }
 
     .flash {
@@ -222,6 +230,10 @@
       .btn-group {
         width: 100%;
         flex-direction: column;
+        align-items: flex-start;
+      }
+      .btn-group > * {
+        width: 100%;
       }
     }
   </style>
@@ -230,9 +242,10 @@
   <h1>Kingshot KVK Rally Sync</h1>
   <div class="card">
     <p class="description">
-      Enter each rally caller and their march time to the target.<br>
-      Times can be in <strong>mm:ss</strong> (e.g. <code>0:37</code>) or plain seconds (e.g. <code>37</code>).
-      The tool will tell you how long after the <strong>slowest march</strong> starts each other rally should launch, so all hit together.
+      Select a common <strong>rally time</strong> (join window) for all rallies, then enter each rally caller and their
+      <strong>march time</strong> to the target.<br>
+      March times can be in <strong>mm:ss</strong> (e.g. <code>0:37</code>) or plain seconds (e.g. <code>37</code>).<br>
+      The tool syncs hits using <strong>rally time + march time</strong> so all rallies land together.
     </p>
 
     <div class="btn-row">
@@ -240,9 +253,18 @@
         <button type="button" id="addRowBtn">＋ Add Rally</button>
         <button type="button" class="secondary" id="clearBtn">Clear All</button>
       </div>
-      <div>
+      <div class="btn-group">
         <label class="base-time">
-          Base rally start time (optional):
+          Rally time for all rallies:
+          <select id="globalRallyTime">
+            <option value="5">5 min</option>
+            <option value="10">10 min</option>
+            <option value="30">30 min</option>
+            <option value="60">60 min</option>
+          </select>
+        </label>
+        <label class="base-time">
+          Base rally creation time (optional):
           <input type="time" id="baseStartTime">
         </label>
       </div>
@@ -251,8 +273,8 @@
     <table>
       <thead>
         <tr>
-          <th style="width: 40%;">Caller Name</th>
-          <th style="width: 40%;">March Time (mm:ss or seconds)</th>
+          <th style="width: 50%;">Caller Name</th>
+          <th style="width: 30%;">March Time (mm:ss or seconds)</th>
           <th style="width: 20%;">Remove</th>
         </tr>
       </thead>
@@ -263,7 +285,7 @@
     <div class="btn-row">
       <button type="button" id="calcBtn">⚔️ Calculate Rally Timing</button>
       <span class="base-time">
-        Tip: Use scouts to test march times from each rally lead to the target, then plug them in here.
+        Tip: Start fake rally to test march times from each rally lead to the target, then plug them in here.
       </span>
     </div>
 
@@ -277,8 +299,8 @@
           <tr>
             <th>Caller</th>
             <th>March Time</th>
-            <th>Delay After Base</th>
-            <th>Start Time (if base set)</th>
+            <th>Delay After Base (rally create)</th>
+            <th>Rally Creation Time (if base set)</th>
           </tr>
         </thead>
         <tbody id="resultsBody">
@@ -291,12 +313,60 @@
       <div class="btn-row" style="margin-bottom:0.5rem;">
         <button type="button" id="startLiveBtn">▶ Start First Rally</button>
         <span class="base-time">
-          Click at the exact moment you tell the base rally to launch.
+          Click at the exact moment you create the <strong>base rally</strong> with the selected rally time.
         </span>
       </div>
       <div id="liveStatus"></div>
     </div>
   </div>
+
+  <!-- Saint Uber footer with insignia -->
+  <footer style="
+    margin-top: 2rem;
+    text-align: center;
+    font-size: 0.85rem;
+    color: #9ca3af;
+    opacity: 0.9;
+    padding-bottom: 2rem;
+  ">
+    <div style="margin-bottom:0.6rem;">
+      <svg width="70" height="70" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="gold" x1="0" y1="0" x2="0" y2="200">
+            <stop offset="0%" stop-color="#facc15"/>
+            <stop offset="100%" stop-color="#b45309"/>
+          </linearGradient>
+        </defs>
+
+        <!-- Crown -->
+        <path d="M50 70 L70 40 L100 75 L130 40 L150 70 L140 120 H60 L50 70Z"
+              fill="url(#gold)" stroke="#facc15" stroke-width="4"/>
+
+        <!-- Wings -->
+        <path d="M60 120 C20 130 20 170 60 180 L80 160 C40 160 40 135 80 135"
+              fill="url(#gold)" stroke="#facc15" stroke-width="3"/>
+        <path d="M140 120 C180 130 180 170 140 180 L120 160 C160 160 160 135 120 135"
+              fill="url(#gold)" stroke="#facc15" stroke-width="3"/>
+
+        <!-- Central Shield -->
+        <circle cx="100" cy="130" r="25"
+                fill="url(#gold)" stroke="#facc15" stroke-width="4"/>
+
+        <!-- S symbol -->
+        <text x="100" y="138"
+              text-anchor="middle"
+              font-size="28"
+              font-weight="700"
+              fill="#0b1220"
+              style="font-family: 'Segoe UI', sans-serif;">
+          S
+        </text>
+      </svg>
+    </div>
+
+    ✦ Tool concept by <span style="color:#facc15; font-weight:600;">Saint Uber</span><br>
+    <span style="font-size:0.75rem; opacity:0.8;">KVK Rally Sync Innovator – Kingshot</span>
+  </footer>
 
   <script>
     const rallyBody = document.getElementById('rallyBody');
@@ -308,6 +378,7 @@
     const resultsBody = document.getElementById('resultsBody');
     const summaryDiv = document.getElementById('summary');
     const baseStartInput = document.getElementById('baseStartTime');
+    const globalRallyTimeSelect = document.getElementById('globalRallyTime');
 
     const liveSection = document.getElementById('liveSection');
     const liveStatus = document.getElementById('liveStatus');
@@ -317,7 +388,12 @@
     let schedule = [];        // [{ name, delay, rowEl, launched }]
     let liveInterval = null;
     let liveStartTime = null;
-    let lastElapsed = 0;
+
+    // Global timing
+    let globalRallySeconds = 5 * 60;
+    let globalMaxMarch = 0;
+    let globalTotalDuration = 0; // rally + max march
+    let lastImpactBeepSecond = null;
 
     // Audio (beep) setup
     let audioCtx = null;
@@ -340,7 +416,7 @@
       const gain = audioCtx.createGain();
       osc.type = 'sine';
       osc.frequency.value = 880; // Hz
-      gain.gain.value = 0.1;
+      gain.gain.value = 0.12;
 
       osc.connect(gain);
       gain.connect(audioCtx.destination);
@@ -350,23 +426,28 @@
       osc.stop(now + 0.15); // short beep
     }
 
-    function addRow(name = '', time = '') {
+    function addRow(name = '', marchTime = '') {
       const tr = document.createElement('tr');
 
+      // Caller name
       const nameTd = document.createElement('td');
       const nameInput = document.createElement('input');
       nameInput.type = 'text';
       nameInput.placeholder = 'Saul / Amadeus / Jabel...';
       nameInput.value = name;
+      nameInput.classList.add('caller-name');
       nameTd.appendChild(nameInput);
 
+      // March time
       const timeTd = document.createElement('td');
       const timeInput = document.createElement('input');
       timeInput.type = 'text';
       timeInput.placeholder = '0:37 or 37';
-      timeInput.value = time;
+      timeInput.value = marchTime;
+      timeInput.classList.add('march-time');
       timeTd.appendChild(timeInput);
 
+      // Remove button
       const removeTd = document.createElement('td');
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
@@ -414,7 +495,6 @@
     }
 
     function parseBaseTimeToDate(timeStr) {
-      // timeStr is "HH:MM"
       if (!timeStr) return null;
       const [h, m] = timeStr.split(':').map(Number);
       if (isNaN(h) || isNaN(m)) return null;
@@ -436,10 +516,10 @@
         liveInterval = null;
       }
       liveStartTime = null;
-      lastElapsed = 0;
       liveStatus.textContent = '';
       liveStatus.classList.remove('flash');
       startLiveBtn.disabled = false;
+      lastImpactBeepSecond = null;
       schedule.forEach(item => {
         item.rowEl.style.outline = 'none';
       });
@@ -455,13 +535,21 @@
       resetLive();
       schedule = [];
 
+      // Global rally time
+      const rallyMinutes = parseInt(globalRallyTimeSelect.value, 10) || 5;
+      globalRallySeconds = rallyMinutes * 60;
+
       const rows = Array.from(rallyBody.querySelectorAll('tr'));
       const entries = [];
 
       for (const row of rows) {
-        const inputs = row.querySelectorAll('input');
-        const name = inputs[0].value.trim();
-        const timeStr = inputs[1].value.trim();
+        const nameInput = row.querySelector('.caller-name');
+        const marchInput = row.querySelector('.march-time');
+
+        if (!nameInput || !marchInput) continue;
+
+        const name = nameInput.value.trim();
+        const timeStr = marchInput.value.trim();
 
         if (!name && !timeStr) {
           continue; // ignore empty rows
@@ -473,17 +561,16 @@
           return;
         }
 
-        const seconds = parseTime(timeStr);
-        if (isNaN(seconds) || seconds <= 0) {
-          messageDiv.textContent = `Invalid time "${timeStr}". Use mm:ss (0:37) or seconds (37).`;
+        const marchSeconds = parseTime(timeStr);
+        if (isNaN(marchSeconds) || marchSeconds <= 0) {
+          messageDiv.textContent = `Invalid march time "${timeStr}". Use mm:ss (0:37) or seconds (37).`;
           messageDiv.className = 'error';
           return;
         }
 
         entries.push({
           name: name || 'Unnamed',
-          rawTime: timeStr,
-          seconds
+          marchSeconds
         });
       }
 
@@ -493,22 +580,24 @@
         return;
       }
 
-      const maxSeconds = Math.max(...entries.map(e => e.seconds));
-      const baseEntries = entries.filter(e => e.seconds === maxSeconds);
+      globalMaxMarch = Math.max(...entries.map(e => e.marchSeconds));
+      globalTotalDuration = globalRallySeconds + globalMaxMarch;
+
+      const baseEntries = entries.filter(e => e.marchSeconds === globalMaxMarch);
 
       let baseLabel;
       if (baseEntries.length === 1) {
-        baseLabel = `Base (slowest) march is <strong>${baseEntries[0].name}</strong> at <strong>${formatTime(maxSeconds)}</strong>.`;
+        baseLabel = `Base (slowest) rally is <strong>${baseEntries[0].name}</strong> with march <strong>${formatTime(globalMaxMarch)}</strong>.`;
       } else {
         const names = baseEntries.map(e => e.name).join(', ');
-        baseLabel = `Multiple marches share the slowest time <strong>${formatTime(maxSeconds)}</strong>: <strong>${names}</strong>. Choose any one as your base.`;
+        baseLabel = `Multiple rallies share the slowest march time <strong>${formatTime(globalMaxMarch)}</strong>: <strong>${names}</strong>. Choose any one as your base.`;
       }
 
       const baseTimeStr = baseStartInput.value;
       const baseDate = parseBaseTimeToDate(baseTimeStr);
 
       if (baseTimeStr && !baseDate) {
-        messageDiv.textContent = 'Invalid base start time. Use HH:MM (e.g. 21:05).';
+        messageDiv.textContent = 'Invalid base rally creation time. Use HH:MM (e.g. 21:05).';
         messageDiv.className = 'error';
         return;
       }
@@ -516,31 +605,40 @@
       summaryDiv.innerHTML = `
         <p class="description">
           ${baseLabel}<br>
-          Start the base rally at <strong>t = 0</strong>${baseDate ? ' (or at <strong>' + baseTimeStr + '</strong> in real time)' : ''}.<br>
-          Launch each other rally after the listed delay so all hits land together.
+          Common rally time for all rallies: <strong>${rallyMinutes} min (${formatTime(globalRallySeconds)})</strong>.<br>
+          From base rally creation to impact: <strong>${formatTime(globalTotalDuration)}</strong> (rally + base march).<br>
+          Click "Start First Rally" when you <strong>create the base rally</strong> in-game (t = 0)${baseDate ? ', or at <strong>' + baseTimeStr + '</strong> real time' : ''}.<br>
+          Create each other rally after the listed delay so that <strong>rally time + march time</strong> sync the impact.
         </p>
       `;
 
       // Build results table and schedule
       entries.forEach(e => {
-        const delay = maxSeconds - e.seconds;
+        const delay = globalMaxMarch - e.marchSeconds;
         const delayClamped = delay < 0 ? 0 : delay;
-        const delayStr = formatTime(delayClamped) + ` (${delayClamped.toFixed(0)}s)`;
-        const marchStr = formatTime(e.seconds) + ` (${e.seconds.toFixed(0)}s)`;
 
+        const marchStr = `${formatTime(e.marchSeconds)} (${e.marchSeconds.toFixed(0)}s)`;
+        const delayStr = `${formatTime(delayClamped)} (${delayClamped.toFixed(0)}s)`;
+
+        const baseTimeStrLocal = baseStartInput.value;
+        const baseDateLocal = parseBaseTimeToDate(baseTimeStrLocal);
         let startClockStr = '-';
-        if (baseDate) {
-          const startDate = new Date(baseDate.getTime() + delayClamped * 1000);
+        if (baseDateLocal) {
+          const startDate = new Date(baseDateLocal.getTime() + delayClamped * 1000);
           startClockStr = formatClockTime(startDate);
         }
 
         const tr = document.createElement('tr');
+
         const nameTd = document.createElement('td');
         nameTd.textContent = e.name;
+
         const marchTd = document.createElement('td');
         marchTd.textContent = marchStr;
+
         const delayTd = document.createElement('td');
         delayTd.textContent = delayStr;
+
         const startTd = document.createElement('td');
         startTd.textContent = startClockStr;
 
@@ -548,6 +646,7 @@
         tr.appendChild(marchTd);
         tr.appendChild(delayTd);
         tr.appendChild(startTd);
+
         resultsBody.appendChild(tr);
 
         schedule.push({
@@ -558,14 +657,14 @@
         });
       });
 
-      // Sort schedule by delay so we know the order of launches
+      // Sort schedule by delay so we know the order of rally creations
       schedule.sort((a, b) => a.delay - b.delay);
 
       resultsDiv.style.display = 'block';
 
       if (schedule.length > 0) {
         liveSection.style.display = 'block';
-        liveStatus.textContent = 'Ready. Click "Start First Rally" when the base rally launches.';
+        liveStatus.textContent = 'Ready. Click "Start First Rally" when the base rally is created.';
         startLiveBtn.disabled = false;
       } else {
         liveSection.style.display = 'none';
@@ -578,7 +677,6 @@
       resetLive();
       initAudio(); // unlock audio on user gesture
       liveStartTime = Date.now();
-      lastElapsed = 0;
       startLiveBtn.disabled = true;
       liveStatus.classList.add('flash');
 
@@ -593,10 +691,21 @@
           }
         }
 
-        // If all launched, stop
-        if (schedule.every(item => item.launched)) {
+        const impactRemaining = globalTotalDuration - elapsed;
+
+        // Countdown beeps for last 10 seconds before impact
+        if (impactRemaining > 0) {
+          const impactSecInt = Math.ceil(impactRemaining);
+          if (impactSecInt <= 10 && impactSecInt > 0 && impactSecInt !== lastImpactBeepSecond) {
+            beep();
+            lastImpactBeepSecond = impactSecInt;
+          }
+        }
+
+        // If impact reached, stop completely
+        if (impactRemaining <= 0) {
           liveStatus.classList.remove('flash');
-          liveStatus.innerHTML = '✅ All rallies should now be launched.';
+          liveStatus.innerHTML = '🎯 Target should be hit now. All synced rallies have landed.';
           schedule.forEach(item => {
             item.rowEl.style.outline = 'none';
           });
@@ -605,7 +714,7 @@
           return;
         }
 
-        // Find next upcoming (not yet launched) rally with the smallest delay > elapsed
+        // Find next upcoming (not yet launched) rally
         let next = null;
         for (const item of schedule) {
           if (!item.launched && item.delay > elapsed) {
@@ -614,6 +723,8 @@
             }
           }
         }
+
+        const impactText = `${formatTime(impactRemaining)} (${impactRemaining.toFixed(1)}s)`;
 
         if (next) {
           const remaining = next.delay - elapsed;
@@ -626,11 +737,19 @@
 
           liveStatus.innerHTML = `
             Next rally: <span class="next-name">${next.name}</span>
-            in <span class="next-time">${remaining.toFixed(1)}s</span>
+            in <span class="next-time">${remaining.toFixed(1)}s</span><br>
+            Time until impact: <span class="impact-time">${impactText}</span>
+          `;
+        } else {
+          // All rallies created, just show time until impact
+          schedule.forEach(item => {
+            item.rowEl.style.outline = 'none';
+          });
+          liveStatus.innerHTML = `
+            ✅ All rallies created.<br>
+            Time until impact: <span class="impact-time">${impactText}</span>
           `;
         }
-
-        lastElapsed = elapsed;
       }, 100);
     }
 
@@ -655,57 +774,5 @@
     addRow('Amadeus');
     addRow('Jabel');
   </script>
-
-<footer style="
-  margin-top: 2rem;
-  text-align: center;
-  font-size: 0.85rem;
-  color: #9ca3af;
-  opacity: 0.9;
-  padding-bottom: 2rem;
-">
-
-  <!-- Saint Uber Insignia -->
-  <div style="margin-bottom:0.6rem;">
-    <svg width="70" height="70" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="gold" x1="0" y1="0" x2="0" y2="200">
-          <stop offset="0%" stop-color="#facc15"/>
-          <stop offset="100%" stop-color="#b45309"/>
-        </linearGradient>
-      </defs>
-
-      <!-- Crown -->
-      <path d="M50 70 L70 40 L100 75 L130 40 L150 70 L140 120 H60 L50 70Z"
-            fill="url(#gold)" stroke="#facc15" stroke-width="4"/>
-
-      <!-- Wings -->
-      <path d="M60 120 C20 130 20 170 60 180 L80 160 C40 160 40 135 80 135"
-            fill="url(#gold)" stroke="#facc15" stroke-width="3"/>
-      <path d="M140 120 C180 130 180 170 140 180 L120 160 C160 160 160 135 120 135"
-            fill="url(#gold)" stroke="#facc15" stroke-width="3"/>
-
-      <!-- Central Shield -->
-      <circle cx="100" cy="130" r="25"
-              fill="url(#gold)" stroke="#facc15" stroke-width="4"/>
-
-      <!-- S symbol -->
-      <text x="100" y="138"
-            text-anchor="middle"
-            font-size="28"
-            font-weight="700"
-            fill="#0b1220"
-            style="font-family: 'Segoe UI', sans-serif;">
-        S
-      </text>
-    </svg>
-  </div>
-
-  ✦ Tool concept by <span style="color:#facc15; font-weight:600;">Saint Uber</span><br>
-  <span style="font-size:0.75rem; opacity:0.8;">KVK Rally Sync Innovator – Kingshot</span>
-
-</footer>
-
 </body>
-
 </html>
