@@ -368,403 +368,316 @@
     <span style="font-size:0.75rem; opacity:0.8;"> Rally Sync Innovator – Kingshot</span>
   </footer>
 
-  <script>
-    const rallyBody = document.getElementById('rallyBody');
-    const addRowBtn = document.getElementById('addRowBtn');
-    const clearBtn = document.getElementById('clearBtn');
-    const calcBtn = document.getElementById('calcBtn');
-    const messageDiv = document.getElementById('message');
-    const resultsDiv = document.getElementById('results');
-    const resultsBody = document.getElementById('resultsBody');
-    const summaryDiv = document.getElementById('summary');
-    const baseStartInput = document.getElementById('baseStartTime');
-    const globalRallyTimeSelect = document.getElementById('globalRallyTime');
+<script>
+const rallyBody = document.getElementById('rallyBody');
+const addRowBtn = document.getElementById('addRowBtn');
+const clearBtn = document.getElementById('clearBtn');
+const calcBtn = document.getElementById('calcBtn');
+const messageDiv = document.getElementById('message');
+const resultsDiv = document.getElementById('results');
+const resultsBody = document.getElementById('resultsBody');
+const summaryDiv = document.getElementById('summary');
+const baseStartInput = document.getElementById('baseStartTime');
+const globalRallyTimeSelect = document.getElementById('globalRallyTime');
 
-    const liveSection = document.getElementById('liveSection');
-    const liveStatus = document.getElementById('liveStatus');
-    const startLiveBtn = document.getElementById('startLiveBtn');
+const liveSection = document.getElementById('liveSection');
+const liveStatus = document.getElementById('liveStatus');
+const startLiveBtn = document.getElementById('startLiveBtn');
 
-    // For the live countdown
-    let schedule = [];        // [{ name, delay, rowEl, launched }]
-    let liveInterval = null;
-    let liveStartTime = null;
+// Live countdown
+let schedule = [];
+let liveInterval = null;
+let liveStartTime = null;
 
-    // Global timing
-    let globalRallySeconds = 5 * 60;
-    let globalMaxMarch = 0;
-    let globalTotalDuration = 0; // rally + max march
-    let lastImpactBeepSecond = null;
+// Rally timing globals
+let globalRallySeconds = 5 * 60;
+let globalMaxMarch = 0;
+let globalTotalDuration = 0;
+let lastImpactBeepSecond = null;
 
-    // Audio (beep) setup
-    let audioCtx = null;
+// Audio beep
+let audioCtx = null;
 
-    function initAudio() {
-      if (!audioCtx) {
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (AC) {
-          audioCtx = new AC();
-        }
+function initAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) audioCtx = new AC();
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function beep() {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = 880;
+  gain.gain.value = 0.12;
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  const now = audioCtx.currentTime;
+  osc.start(now);
+  osc.stop(now + 0.15);
+}
+
+function addRow(name = '', marchTime = '') {
+  const tr = document.createElement('tr');
+
+  // Name field
+  const nameTd = document.createElement('td');
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.placeholder = 'Name';
+  if (name) nameInput.value = name;
+  nameInput.classList.add('caller-name');
+  nameTd.appendChild(nameInput);
+
+  // March time in seconds
+  const timeTd = document.createElement('td');
+  const timeInput = document.createElement('input');
+  timeInput.type = 'text';
+  timeInput.placeholder = 'seconds (e.g. 37)';
+  if (marchTime) timeInput.value = marchTime;
+  timeInput.classList.add('march-time');
+  timeTd.appendChild(timeInput);
+
+  // Remove button
+  const removeTd = document.createElement('td');
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.textContent = '🗑 Remove';
+  removeBtn.classList.add('danger');
+  removeBtn.addEventListener('click', () => rallyBody.removeChild(tr));
+  removeTd.appendChild(removeBtn);
+
+  tr.appendChild(nameTd);
+  tr.appendChild(timeTd);
+  tr.appendChild(removeTd);
+
+  rallyBody.appendChild(tr);
+}
+
+// Parse seconds-only
+function parseTime(str) {
+  if (!str) return NaN;
+  str = str.trim();
+  const v = parseFloat(str);
+  return isNaN(v) || v <= 0 ? NaN : v;
+}
+
+// Format seconds as mm:ss
+function formatTime(sec) {
+  if (!isFinite(sec)) return '';
+  sec = Math.round(sec);
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+}
+
+function parseBaseTimeToDate(timeStr) {
+  if (!timeStr) return null;
+  const [h, m] = timeStr.split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return null;
+  const now = new Date();
+  now.setHours(h, m, 0, 0);
+  return now;
+}
+
+function formatClockTime(date) {
+  return `${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}:${String(date.getSeconds()).padStart(2,'0')}`;
+}
+
+function resetLive() {
+  if (liveInterval) clearInterval(liveInterval);
+  liveInterval = null;
+  liveStartTime = null;
+  liveStatus.textContent = '';
+  liveStatus.classList.remove('flash');
+  startLiveBtn.disabled = false;
+  lastImpactBeepSecond = null;
+  schedule.forEach(item => item.rowEl.style.outline = 'none');
+}
+
+function calculate() {
+  messageDiv.innerHTML = '';
+  resultsDiv.style.display = 'none';
+  resultsBody.innerHTML = '';
+  summaryDiv.innerHTML = '';
+  liveSection.style.display = 'none';
+  resetLive();
+  schedule = [];
+
+  const rallyMinutes = parseInt(globalRallyTimeSelect.value, 10) || 5;
+  globalRallySeconds = rallyMinutes * 60;
+
+  const rows = Array.from(rallyBody.querySelectorAll('tr'));
+  const entries = [];
+
+  for (const row of rows) {
+    const nameInput = row.querySelector('.caller-name');
+    const marchInput = row.querySelector('.march-time');
+    const name = nameInput.value.trim();
+    const timeStr = marchInput.value.trim();
+
+    if (!name && !timeStr) continue;
+    if (!timeStr) {
+      messageDiv.textContent = 'Each rally needs a march time in seconds.';
+      messageDiv.className = 'error';
+      return;
+    }
+
+    const secs = parseTime(timeStr);
+    if (isNaN(secs)) {
+      messageDiv.textContent = `Invalid march time "${timeStr}". Enter seconds only (e.g. 37).`;
+      messageDiv.className = 'error';
+      return;
+    }
+
+    entries.push({ name: name || 'Unnamed', marchSeconds: secs });
+  }
+
+  if (entries.length < 2) {
+    messageDiv.textContent = 'Add at least two rallies to sync.';
+    messageDiv.className = 'warn';
+    return;
+  }
+
+  globalMaxMarch = Math.max(...entries.map(e => e.marchSeconds));
+  globalTotalDuration = globalRallySeconds + globalMaxMarch;
+
+  const baseEntries = entries.filter(e => e.marchSeconds === globalMaxMarch);
+  let baseLabel = baseEntries.length === 1
+    ? `Base rally is <strong>${baseEntries[0].name}</strong> with march <strong>${formatTime(globalMaxMarch)} (${globalMaxMarch}s)</strong>.`
+    : `Multiple base rallies with march <strong>${formatTime(globalMaxMarch)} (${globalMaxMarch}s)</strong>: <strong>${baseEntries.map(e=>e.name).join(', ')}</strong>.`;
+
+  const baseTimeStr = baseStartInput.value;
+  const baseDate = parseBaseTimeToDate(baseTimeStr);
+  if (baseTimeStr && !baseDate) {
+    messageDiv.textContent = 'Invalid base rally creation time. Use HH:MM.';
+    messageDiv.className = 'error';
+    return;
+  }
+
+  summaryDiv.innerHTML = `
+    <p class="description">
+      ${baseLabel}<br>
+      Rally time: <strong>${rallyMinutes} min (${formatTime(globalRallySeconds)})</strong>.<br>
+      Total from creation to impact: <strong>${formatTime(globalTotalDuration)} (${globalTotalDuration}s)</strong>.<br>
+      Click "Start First Rally" when you create the base rally${baseDate ? ' at <strong>'+baseTimeStr+'</strong>' : ''}.
+    </p>`;
+
+  entries.forEach(e => {
+    const delay = Math.max(0, globalMaxMarch - e.marchSeconds);
+
+    const tr = document.createElement('tr');
+
+    const nameTd = document.createElement('td');
+    nameTd.textContent = e.name;
+
+    const marchTd = document.createElement('td');
+    marchTd.textContent = `${formatTime(e.marchSeconds)} (${e.marchSeconds}s)`;
+
+    const delayTd = document.createElement('td');
+    delayTd.textContent = `${formatTime(delay)} (${delay}s)`;
+
+    const startTd = document.createElement('td');
+    if (baseDate) {
+      const d = new Date(baseDate.getTime() + delay * 1000);
+      startTd.textContent = formatClockTime(d);
+    } else {
+      startTd.textContent = '-';
+    }
+
+    tr.appendChild(nameTd);
+    tr.appendChild(marchTd);
+    tr.appendChild(delayTd);
+    tr.appendChild(startTd);
+
+    resultsBody.appendChild(tr);
+
+    schedule.push({ name: e.name, delay, rowEl: tr, launched: false });
+  });
+
+  schedule.sort((a, b) => a.delay - b.delay);
+  resultsDiv.style.display = 'block';
+  liveSection.style.display = 'block';
+  liveStatus.textContent = 'Ready. Click "Start First Rally".';
+}
+
+function startLiveCountdown() {
+  if (!schedule.length) return;
+
+  resetLive();
+  initAudio();
+  liveStartTime = Date.now();
+  startLiveBtn.disabled = true;
+  liveStatus.classList.add('flash');
+
+  liveInterval = setInterval(() => {
+    const elapsed = (Date.now() - liveStartTime) / 1000;
+    const impactRemaining = globalTotalDuration - elapsed;
+
+    for (const item of schedule) {
+      if (!item.launched && elapsed >= item.delay) {
+        item.launched = true;
+        beep();
       }
-      if (audioCtx && audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
     }
 
-    function beep() {
-      if (!audioCtx) return;
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = 880; // Hz
-      gain.gain.value = 0.12;
-
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-
-      const now = audioCtx.currentTime;
-      osc.start(now);
-      osc.stop(now + 0.15); // short beep
-    }
-
-    function addRow(name = '', marchTime = '') {
-      const tr = document.createElement('tr');
-
-      // Caller name
-      const nameTd = document.createElement('td');
-      const nameInput = document.createElement('input');
-      nameInput.type = 'text';
-      nameInput.placeholder = 'Name';
-      nameInput.value = name;
-      nameInput.classList.add('caller-name');
-      nameTd.appendChild(nameInput);
-
-      // March time (seconds)
-      const timeTd = document.createElement('td');
-      const timeInput = document.createElement('input');
-      timeInput.type = 'text';
-      timeInput.placeholder = 'seconds (e.g. 37)';
-      timeInput.value = marchTime;
-      timeInput.classList.add('march-time');
-      timeTd.appendChild(timeInput);
-
-      // Remove button
-      const removeTd = document.createElement('td');
-      const removeBtn = document.createElement('button');
-      removeBtn.type = 'button';
-      removeBtn.textContent = '🗑 Remove';
-      removeBtn.classList.add('danger');
-      removeBtn.addEventListener('click', () => {
-        rallyBody.removeChild(tr);
-      });
-      removeTd.appendChild(removeBtn);
-
-      tr.appendChild(nameTd);
-      tr.appendChild(timeTd);
-      tr.appendChild(removeTd);
-
-      rallyBody.appendChild(tr);
-    }
-
-    // Parse seconds-only time
-    function parseTime(str) {
-      if (!str) return NaN;
-      str = str.trim();
-      if (!str) return NaN;
-
-      const v = parseFloat(str);
-      if (isNaN(v) || v <= 0) return NaN;
-
-      return v;
-    }
-
-    // Format seconds as mm:ss
-    function formatTime(sec) {
-      if (!isFinite(sec)) return '';
-      sec = Math.round(sec);
-      const m = Math.floor(sec / 60);
-      const s = sec % 60;
-      return m + ':' + String(s).padStart(2, '0');
-    }
-
-    function parseBaseTimeToDate(timeStr) {
-      if (!timeStr) return null;
-      const [h, m] = timeStr.split(':').map(Number);
-      if (isNaN(h) || isNaN(m)) return null;
-      const now = new Date();
-      now.setHours(h, m, 0, 0);
-      return now;
-    }
-
-    function formatClockTime(date) {
-      const h = String(date.getHours()).padStart(2, '0');
-      const m = String(date.getMinutes()).padStart(2, '0');
-      const s = String(date.getSeconds()).padStart(2, '0');
-      return `${h}:${m}:${s}`;
-    }
-
-    function resetLive() {
-      if (liveInterval) {
-        clearInterval(liveInterval);
-        liveInterval = null;
-      }
-      liveStartTime = null;
-      liveStatus.textContent = '';
+    if (impactRemaining <= 0) {
       liveStatus.classList.remove('flash');
-      startLiveBtn.disabled = false;
-      lastImpactBeepSecond = null;
-      schedule.forEach(item => {
-        item.rowEl.style.outline = 'none';
-      });
+      liveStatus.innerHTML = '🎯 Target should be hit now. All synced rallies have landed.';
+      schedule.forEach(item => item.rowEl.style.outline = 'none');
+      clearInterval(liveInterval);
+      return;
     }
 
-    function calculate() {
-      messageDiv.innerHTML = '';
-      messageDiv.className = '';
-      resultsDiv.style.display = 'none';
-      resultsBody.innerHTML = '';
-      summaryDiv.innerHTML = '';
-      liveSection.style.display = 'none';
-      resetLive();
-      schedule = [];
+    const impInt = Math.ceil(impactRemaining);
+    if (impInt <= 10 && impInt > 0 && impInt !== lastImpactBeepSecond) {
+      beep();
+      lastImpactBeepSecond = impInt;
+    }
 
-      // Global rally time
-      const rallyMinutes = parseInt(globalRallyTimeSelect.value, 10) || 5;
-      globalRallySeconds = rallyMinutes * 60;
+    let next = schedule.find(item => !item.launched && item.delay > elapsed);
 
-      const rows = Array.from(rallyBody.querySelectorAll('tr'));
-      const entries = [];
-
-      for (const row of rows) {
-        const nameInput = row.querySelector('.caller-name');
-        const marchInput = row.querySelector('.march-time');
-
-        if (!nameInput || !marchInput) continue;
-
-        const name = nameInput.value.trim();
-        const timeStr = marchInput.value.trim();
-
-        if (!name && !timeStr) {
-          continue; // ignore empty rows
-        }
-
-        if (!timeStr) {
-          messageDiv.textContent = 'Each rally needs a march time in seconds.';
-          messageDiv.className = 'error';
-          return;
-        }
-
-        const marchSeconds = parseTime(timeStr);
-        if (isNaN(marchSeconds) || marchSeconds <= 0) {
-          messageDiv.textContent = `Invalid march time "${timeStr}". Enter march time in seconds only (e.g. 37).`;
-          messageDiv.className = 'error';
-          return;
-        }
-
-        entries.push({
-          name: name || 'Unnamed',
-          marchSeconds
-        });
-      }
-
-      if (entries.length < 2) {
-        messageDiv.textContent = 'Add at least two rallies to sync.';
-        messageDiv.className = 'warn';
-        return;
-      }
-
-      globalMaxMarch = Math.max(...entries.map(e => e.marchSeconds));
-      globalTotalDuration = globalRallySeconds + globalMaxMarch;
-
-      const baseEntries = entries.filter(e => e.marchSeconds === globalMaxMarch);
-
-      let baseLabel;
-      if (baseEntries.length === 1) {
-        baseLabel = `Base (slowest) rally is <strong>${baseEntries[0].name}</strong> with march <strong>${formatTime(globalMaxMarch)} (${globalMaxMarch.toFixed(0)}s)</strong>.`;
-      } else {
-        const names = baseEntries.map(e => e.name).join(', ');
-        baseLabel = `Multiple rallies share the slowest march time <strong>${formatTime(globalMaxMarch)} (${globalMaxMarch.toFixed(0)}s)</strong>: <strong>${names}</strong>. Choose any one as your base.`;
-      }
-
-      const baseTimeStr = baseStartInput.value;
-      const baseDate = parseBaseTimeToDate(baseTimeStr);
-
-      if (baseTimeStr && !baseDate) {
-        messageDiv.textContent = 'Invalid base rally creation time. Use HH:MM (e.g. 21:05).';
-        messageDiv.className = 'error';
-        return;
-      }
-
-      summaryDiv.innerHTML = `
-        <p class="description">
-          ${baseLabel}<br>
-          Common rally time for all rallies: <strong>${rallyMinutes} min (${formatTime(globalRallySeconds)})</strong>.<br>
-          From base rally creation to impact: <strong>${formatTime(globalTotalDuration)} (${globalTotalDuration.toFixed(0)}s)</strong> (rally + base march).<br>
-          Click "Start First Rally" when you <strong>create the base rally</strong> in-game (t = 0)${baseDate ? ', or at <strong>' + baseTimeStr + '</strong> real time' : ''}.<br>
-          Create each other rally after the listed delay so that <strong>rally time + march time</strong> sync the impact.
-        </p>
+    if (next) {
+      let remain = next.delay - elapsed;
+      schedule.forEach(i => i.rowEl.style.outline = 'none');
+      next.rowEl.style.outline = '2px solid rgba(250,204,21,0.9)';
+      liveStatus.innerHTML = `
+        Next rally: <span class="next-name">${next.name}</span>
+        in <span class="next-time">${remain.toFixed(1)}s</span><br>
+        Time until impact: <span class="impact-time">${formatTime(impactRemaining)} (${impactRemaining.toFixed(1)}s)</span>
       `;
-
-      // Build results table and schedule
-      entries.forEach(e => {
-        const delay = globalMaxMarch - e.marchSeconds;
-        const delayClamped = delay < 0 ? 0 : delay;
-
-        const marchStr = `${formatTime(e.marchSeconds)} (${e.marchSeconds.toFixed(0)}s)`;
-        const delayStr = `${formatTime(delayClamped)} (${delayClamped.toFixed(0)}s)`;
-
-        const baseTimeStrLocal = baseStartInput.value;
-        const baseDateLocal = parseBaseTimeToDate(baseTimeStrLocal);
-        let startClockStr = '-';
-        if (baseDateLocal) {
-          const startDate = new Date(baseDateLocal.getTime() + delayClamped * 1000);
-          startClockStr = formatClockTime(startDate);
-        }
-
-        const tr = document.createElement('tr');
-
-        const nameTd = document.createElement('td');
-        nameTd.textContent = e.name;
-
-        const marchTd = document.createElement('td');
-        marchTd.textContent = marchStr;
-
-        const delayTd = document.createElement('td');
-        delayTd.textContent = delayStr;
-
-        const startTd = document.createElement('td');
-        startTd.textContent = startClockStr;
-
-        tr.appendChild(nameTd);
-        tr.appendChild(marchTd);
-        tr.appendChild(delayTd);
-        tr.appendChild(startTd);
-
-        resultsBody.appendChild(tr);
-
-        schedule.push({
-          name: e.name,
-          delay: delayClamped,
-          rowEl: tr,
-          launched: false
-        });
-      });
-
-      // Sort schedule by delay so we know the order of rally creations
-      schedule.sort((a, b) => a.delay - b.delay);
-
-      resultsDiv.style.display = 'block';
-
-      if (schedule.length > 0) {
-        liveSection.style.display = 'block';
-        liveStatus.textContent = 'Ready. Click "Start First Rally" when the base rally is created.';
-        startLiveBtn.disabled = false;
-      } else {
-        liveSection.style.display = 'none';
-      }
+    } else {
+      liveStatus.innerHTML = `
+        ✅ All rallies created.<br>
+        Time until impact: <span class="impact-time">${formatTime(impactRemaining)} (${impactRemaining.toFixed(1)}s)</span>
+      `;
     }
 
-    function startLiveCountdown() {
-      if (!schedule.length) return;
+  }, 100);
+}
 
-      resetLive();
-      initAudio(); // unlock audio on user gesture
-      liveStartTime = Date.now();
-      startLiveBtn.disabled = true;
-      liveStatus.classList.add('flash');
+// Events
+addRowBtn.addEventListener('click', () => addRow());
+clearBtn.addEventListener('click', () => {
+  rallyBody.innerHTML = '';
+  resultsDiv.style.display = 'none';
+  summaryDiv.innerHTML = '';
+  baseStartInput.value = '';
+  liveSection.style.display = 'none';
+  resetLive();
+  addRow();
+  addRow();
+  addRow();
+});
+calcBtn.addEventListener('click', calculate);
+startLiveBtn.addEventListener('click', startLiveCountdown);
 
-      liveInterval = setInterval(() => {
-        const elapsed = (Date.now() - liveStartTime) / 1000;
+// Default empty rows on load
+addRow();
+addRow();
+addRow();
+</script>
 
-        // Beep for any rallies whose delay we just crossed
-        for (const item of schedule) {
-          if (!item.launched && elapsed >= item.delay) {
-            item.launched = true;
-            beep();
-          }
-        }
-
-        const impactRemaining = globalTotalDuration - elapsed;
-
-        // Countdown beeps for last 10 seconds before impact
-        if (impactRemaining > 0) {
-          const impactSecInt = Math.ceil(impactRemaining);
-          if (impactSecInt <= 10 && impactSecInt > 0 && impactSecInt !== lastImpactBeepSecond) {
-            beep();
-            lastImpactBeepSecond = impactSecInt;
-          }
-        }
-
-        // If impact reached, stop completely
-        if (impactRemaining <= 0) {
-          liveStatus.classList.remove('flash');
-          liveStatus.innerHTML = '🎯 Target should be hit now. All synced rallies have landed.';
-          schedule.forEach(item => {
-            item.rowEl.style.outline = 'none';
-          });
-          clearInterval(liveInterval);
-          liveInterval = null;
-          return;
-        }
-
-        // Find next upcoming (not yet launched) rally
-        let next = null;
-        for (const item of schedule) {
-          if (!item.launched && item.delay > elapsed) {
-            if (!next || item.delay < next.delay) {
-              next = item;
-            }
-          }
-        }
-
-        const impactText = `${formatTime(impactRemaining)} (${impactRemaining.toFixed(1)}s)`;
-
-        if (next) {
-          const remaining = next.delay - elapsed;
-
-          // Highlight that row
-          schedule.forEach(item => {
-            item.rowEl.style.outline = 'none';
-          });
-          next.rowEl.style.outline = '2px solid rgba(250, 204, 21, 0.9)';
-
-          liveStatus.innerHTML = `
-            Next rally: <span class="next-name">${next.name}</span>
-            in <span class="next-time">${remaining.toFixed(1)}s</span><br>
-            Time until impact: <span class="impact-time">${impactText}</span>
-          `;
-        } else {
-          // All rallies created, just show time until impact
-          schedule.forEach(item => {
-            item.rowEl.style.outline = 'none';
-          });
-          liveStatus.innerHTML = `
-            ✅ All rallies created.<br>
-            Time until impact: <span class="impact-time">${impactText}</span>
-          `;
-        }
-      }, 100);
-    }
-
-    addRowBtn.addEventListener('click', () => addRow());
-    clearBtn.addEventListener('click', () => {
-      rallyBody.innerHTML = '';
-      resultsDiv.style.display = 'none';
-      messageDiv.textContent = '';
-      messageDiv.className = '';
-      summaryDiv.innerHTML = '';
-      baseStartInput.value = '';
-      liveSection.style.display = 'none';
-      resetLive();
-      // add a few blank rows again
-      for (let i = 0; i < 3; i++) addRow('Name');
-    });
-    calcBtn.addEventListener('click', calculate);
-    startLiveBtn.addEventListener('click', startLiveCountdown);
-
-    // Start with three default rows
-    addRow('Name');
-    addRow('Name');
-    addRow('Name');
-  </script>
 </body>
 </html>
