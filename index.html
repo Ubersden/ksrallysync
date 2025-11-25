@@ -367,7 +367,6 @@
       <div class="btn-row" style="margin-bottom:0.5rem;">
         <div class="btn-group">
           <button type="button" id="startLiveBtn">▶ Start First Rally</button>
-          <button type="button" class="secondary" id="restartLiveBtn">🔁 Restart Rally</button>
           <button type="button" class="secondary" id="cancelLiveBtn">⏹ Cancel Rally</button>
         </div>
         <span class="base-time">
@@ -442,7 +441,6 @@
     const liveSection = document.getElementById('liveSection');
     const liveStatus = document.getElementById('liveStatus');
     const startLiveBtn = document.getElementById('startLiveBtn');
-    const restartLiveBtn = document.getElementById('restartLiveBtn');
     const cancelLiveBtn = document.getElementById('cancelLiveBtn');
     const goHint = document.getElementById('goHint');
 
@@ -807,33 +805,14 @@
       startLiveBtn.classList.remove('go-alert');
       liveStatus.classList.add('flash');
 
-      // ensure all rallies start as not launched
-      schedule.forEach(item => item.launched = false);
-
-      runLiveLoop();
-    }
-
-    function restartLive() {
-      if (!schedule.length) return;
-
-      initAudio();
-      resetLiveState(false); // stop current loop, keep HUD
-      document.body.classList.add('live-mode');
-
-      // restart from t = 0 with same schedule
-      liveStartTime = Date.now();
-      startLiveBtn.disabled = true;
-      startLiveBtn.classList.remove('go-alert');
-      liveStatus.classList.add('flash');
-
       schedule.forEach(item => item.launched = false);
 
       runLiveLoop();
     }
 
     function cancelLive() {
-      // Stop timers, exit HUD, but leave current rows & delays visible for quick tweaks
-      resetLiveState(true);
+      // Stop timers, exit HUD, keep schedule & labels so user can hit Go again
+      resetLiveState(false);
       liveSection.style.display = 'block';
       document.body.classList.remove('live-mode');
     }
@@ -882,7 +861,6 @@
     trainingBtn.addEventListener('click', loadTrainingScenario);
     calcBtn.addEventListener('click', calculate);
     startLiveBtn.addEventListener('click', startLiveCountdown);
-    restartLiveBtn.addEventListener('click', restartLive);
     cancelLiveBtn.addEventListener('click', cancelLive);
 
     // Default empty rows on load
