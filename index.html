@@ -557,23 +557,30 @@
       // Build results table & schedule (seconds-only in table)
       entries.forEach(e => {
         const delay = Math.max(0, globalMaxMarch - e.marchSeconds);
-
+      
+        // 🟢 Update delay cell in the TOP table (input rows)
+        const originalDelayCell = e.rowEl.children[2]; // 3rd <td> in the input row
+        if (originalDelayCell) {
+          originalDelayCell.textContent = `${delay}s`;
+        }
+      
+        // Also fill the RESULTS table below
         const tr = document.createElement('tr');
-
+      
         const nameTd = document.createElement('td');
         nameTd.textContent = e.name;
-
+      
         const marchTd = document.createElement('td');
         marchTd.textContent = `${e.marchSeconds}s`;
-
+      
         const delayTd = document.createElement('td');
         delayTd.textContent = `${delay}s`;
-
+      
         tr.appendChild(nameTd);
         tr.appendChild(marchTd);
         tr.appendChild(delayTd);
         resultsBody.appendChild(tr);
-
+      
         schedule.push({
           name: e.name,
           delay,
@@ -581,6 +588,7 @@
           launched: false
         });
       });
+
 
       // Sort schedule by delay so we know call order
       schedule.sort((a, b) => a.delay - b.delay);
