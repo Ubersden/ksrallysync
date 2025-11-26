@@ -20,6 +20,32 @@
       text-align: center;
     }
 
+    .sound-toggle {
+      text-align: center;
+      margin-bottom: 0.75rem;
+      font-size: 0.85rem;
+      color: #e5e7eb;
+    }
+
+    .sound-toggle label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.5);
+    }
+
+    .sound-toggle select {
+      padding: 0.2rem 0.5rem;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 0.85rem;
+    }
+
     .card {
       max-width: 900px;
       margin: 0 auto;
@@ -262,6 +288,18 @@
 </head>
 <body>
   <h1>Kingshot Rally Sync Tool</h1>
+
+  <!-- Sound toggle under the title -->
+  <div class="sound-toggle">
+    <label>
+      🔊 Sound:
+      <select id="soundToggle">
+        <option value="on" selected>On</option>
+        <option value="off">Off</option>
+      </select>
+    </label>
+  </div>
+
   <div class="card">
     <p class="description">
       Select a common <strong>rally time</strong> (join window) for all rallies, then enter each rally caller and their
@@ -393,6 +431,7 @@
     </div>
 
     ✦ Tool concept by <span style="color:#facc15; font-weight:600;">Saint Uber</span><br>
+    <span style="font-size:0.75rem; opacity:0.8;"> Rally Sync Innovator – Kingshot</span>
   </footer>
 
   <script>
@@ -414,6 +453,11 @@
     const editLiveBtn = document.getElementById('editLiveBtn');
     const goHint = document.getElementById('goHint');
 
+    const soundToggle = document.getElementById('soundToggle');
+
+    // Sound enabled flag
+    let soundEnabled = true;
+
     // Live countdown
     let schedule = [];          // [{ tag, name, petBuff, label, hudLabel, delay, rowEl, launched, lastCallSecond }]
     let liveInterval = null;
@@ -433,6 +477,10 @@
     // Audio beep
     let audioCtx = null;
 
+    soundToggle.addEventListener('change', (e) => {
+      soundEnabled = (e.target.value === 'on');
+    });
+
     function initAudio() {
       if (!audioCtx) {
         const AC = window.AudioContext || window.webkitAudioContext;
@@ -444,6 +492,7 @@
     }
 
     function beep() {
+      if (!soundEnabled) return;
       if (!audioCtx) return;
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
@@ -458,6 +507,7 @@
     }
 
     function speak(text) {
+      if (!soundEnabled) return;
       if ('speechSynthesis' in window) {
         const u = new SpeechSynthesisUtterance(text);
         window.speechSynthesis.speak(u);
@@ -764,7 +814,7 @@
           if (remainingDelay > 0 && remainingDelay <= 5) {
             const sec = Math.ceil(remainingDelay);
             if (sec !== item.lastCallSecond) {
-              // "Saint in 5, 4, 3, 2, 1"
+              // "[Tag] Name in 5, 4, 3, 2, 1"
               beep();
               if (sec === 5) {
                 speak(`${item.label} in 5`);
