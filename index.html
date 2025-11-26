@@ -706,7 +706,7 @@
         const be = baseEntries[0];
         const label = makeLabel(be.tag, be.name);
         const hudLabel = makeHudLabel(label, be.petBuff);
-        startLiveBtn.textContent = `▶ Go ${hudLabel}`;
+        startLiveBtn.textContent = `▶ Call First Rally… ${hudLabel}`;
         startLiveBtn.classList.add('go-alert');
         goHint.textContent = `${hudLabel} must launch first to sync all rallies.`;
       } else {
