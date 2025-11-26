@@ -416,7 +416,7 @@
     const goHint = document.getElementById('goHint');
 
     // Live countdown
-    let schedule = [];          // [{ tag, name, petBuff, label, hudLabel, delay, rowEl, launched }]
+    let schedule = [];          // [{ tag, name, petBuff, label, hudLabel, delay, rowEl, launched, lastCallSecond }]
     let liveInterval = null;
     let liveStartTime = null;
 
@@ -562,6 +562,7 @@
       lastCountdownSpoken = null;
       schedule.forEach(item => {
         item.rowEl.style.outline = 'none';
+        item.lastCallSecond = null;
       });
       startLiveBtn.disabled = false;
       if (fullReset) {
@@ -722,7 +723,8 @@
           hudLabel,
           delay,
           rowEl: tr,
-          launched: false
+          launched: false,
+          lastCallSecond: null
         });
       });
 
@@ -754,9 +756,26 @@
           marchVoiceAnnounced = true;
         }
 
-        // Beep + speak + vibrate when each rally's delay is reached
+        // Per-rally countdowns + Go
         for (const item of schedule) {
-          if (!item.launched && elapsed >= item.delay) {
+          if (item.launched) continue;
+
+          const remainingDelay = item.delay - elapsed;
+
+          if (remainingDelay > 0 && remainingDelay <= 5) {
+            const sec = Math.ceil(remainingDelay);
+            if (sec !== item.lastCallSecond) {
+              // "Saint in 5, 4, 3, 2, 1"
+              beep();
+              if (sec === 5) {
+                speak(`${item.label} in 5`);
+              } else {
+                speak(String(sec));
+              }
+              item.lastCallSecond = sec;
+            }
+          } else if (remainingDelay <= 0) {
+            // Go!
             item.launched = true;
             beep();
             speak(`Go ${item.label}`);
@@ -812,11 +831,12 @@
           }
         }
 
-        // Find next rally to launch
+        // Find next rally to launch (not yet launched and still ahead)
         let next = null;
         for (const item of schedule) {
-          if (!item.launched && item.delay > elapsed) {
-            if (!next || item.delay < next.delay) {
+          const remainingDelay = item.delay - elapsed;
+          if (!item.launched && remainingDelay > 0) {
+            if (!next || remainingDelay < (next.delay - elapsed)) {
               next = item;
             }
           }
@@ -836,11 +856,26 @@
           schedule.forEach(item => item.rowEl.style.outline = 'none');
           next.rowEl.style.outline = '2px solid rgba(250, 204, 21, 0.9)';
 
+          let mainLine;
+          if (remaining <= 5) {
+            // Show "[Tag] Saint in 5s" style
+            const sec = Math.ceil(remaining);
+            mainLine = `
+              <div class="next-name-big ${urgencyClass}">${next.hudLabel}</div>
+              <div class="next-time-big ${urgencyClass}">in ${sec}s</div>
+            `;
+          } else {
+            // Normal numeric countdown
+            mainLine = `
+              <div class="next-name-big ${urgencyClass}">${next.hudLabel}</div>
+              <div class="next-time-big ${urgencyClass}">${remaining.toFixed(1)}s</div>
+            `;
+          }
+
           liveStatus.innerHTML = `
             <div class="next-block">
               <div class="next-label">Next rally</div>
-              <div class="next-name-big ${urgencyClass}">${next.hudLabel}</div>
-              <div class="next-time-big ${urgencyClass}">${remaining.toFixed(1)}s</div>
+              ${mainLine}
             </div>
             <div class="impact-line">
               Impact in <span class="impact-time">${impactRemaining.toFixed(1)}s</span>
@@ -891,7 +926,10 @@
       startLiveBtn.classList.remove('go-alert');
       liveStatus.classList.add('flash');
 
-      schedule.forEach(item => item.launched = false);
+      schedule.forEach(item => {
+        item.launched = false;
+        item.lastCallSecond = null;
+      });
 
       runLiveLoop();
     }
