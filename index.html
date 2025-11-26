@@ -817,7 +817,7 @@
               // "[Tag] Name in 5, 4, 3, 2, 1"
               beep();
               if (sec === 5) {
-                speak(`${item.label} in 5`);
+                speak(`${item.hudLabel} in 5`);
               } else {
                 speak(String(sec));
               }
@@ -827,7 +827,7 @@
             // Go!
             item.launched = true;
             beep();
-            speak(`Go ${item.label}`);
+            speak(`${item.label} Go`);
             if (navigator.vibrate) {
               navigator.vibrate([150, 80, 150]);
             }
