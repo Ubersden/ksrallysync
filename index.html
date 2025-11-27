@@ -373,12 +373,12 @@
     <div class="live" id="liveSection" style="display:none;">
       <div class="btn-row" style="margin-bottom:0.5rem;">
         <div class="btn-group">
-          <button type="button" id="startLiveBtn">▶ Call First Rally…</button>
+          <button type="button" id="startLiveBtn">▶ Start First Rally</button>
           <button type="button" class="secondary" id="cancelLiveBtn">⏹ Cancel Rally</button>
           <button type="button" class="secondary" id="editLiveBtn">✏️ Cancel & Edit</button>
         </div>
         <span class="base-time">
-          Click <strong>Call First Rally…</strong> at the exact moment you create the <strong>base rally</strong> with the selected rally time.
+          Click <strong>Go</strong> at the exact moment you create the <strong>base rally</strong> with the selected rally time.
         </span>
       </div>
       <div id="goHint" class="base-time" style="text-align:center; margin-bottom:0.5rem;"></div>
@@ -430,7 +430,8 @@
       </svg>
     </div>
 
-    ✦ Tool concept by <span style="color:#facc15; font-weight:600;">Saint Uber</span>
+    ✦ Tool concept by <span style="color:#facc15; font-weight:600;">Saint Uber</span><br>
+    <span style="font-size:0.75rem; opacity:0.8;"> Rally Sync Innovator – Kingshot</span>
   </footer>
 
   <script>
@@ -471,6 +472,7 @@
     // Voice state
     let marchVoiceAnnounced = false;
     let hypeSpoken = false;
+    let lastCountdownSpoken = null;
 
     // Audio beep
     let audioCtx = null;
@@ -506,10 +508,16 @@
 
     function speak(text) {
       if (!soundEnabled) return;
-      if ('speechSynthesis' in window) {
-        const u = new SpeechSynthesisUtterance(text);
-        window.speechSynthesis.speak(u);
-      }
+      if (!('speechSynthesis' in window)) return;
+
+      // Strip paw emoji and brackets from spoken text: "[Ksa] Saint" -> "Ksa Saint"
+      let clean = text.replace(/🐾/g, '');
+      clean = clean.replace(/\[([^\]]+)\]\s*/g, '$1 ');
+      clean = clean.replace(/\s+/g, ' ').trim();
+      if (!clean) return;
+
+      const u = new SpeechSynthesisUtterance(clean);
+      window.speechSynthesis.speak(u);
     }
 
     function makeLabel(tag, name) {
@@ -606,13 +614,14 @@
       lastImpactBeepSecond = null;
       marchVoiceAnnounced = false;
       hypeSpoken = false;
+      lastCountdownSpoken = null;
       schedule.forEach(item => {
         item.rowEl.style.outline = 'none';
         item.lastCallSecond = null;
       });
       startLiveBtn.disabled = false;
       if (fullReset) {
-        startLiveBtn.textContent = '▶ Call First Rally…';
+        startLiveBtn.textContent = '▶ Start First Rally';
         startLiveBtn.classList.remove('go-alert');
         goHint.textContent = '';
         document.body.classList.remove('live-mode');
@@ -691,22 +700,24 @@
         const label = makeLabel(be.tag, be.name);
         const hudLabel = makeHudLabel(label, be.petBuff);
         baseLabel = `Base (slowest) rally is <strong>${hudLabel}</strong> with march <strong>${globalMaxMarch}s (${formatTime(globalMaxMarch)})</strong>.`;
-        startLiveBtn.textContent = `▶ Call First Rally… ${hudLabel}`;
       } else {
         const labels = baseEntries
           .map(e => makeHudLabel(makeLabel(e.tag, e.name), e.petBuff))
           .join(', ');
         baseLabel = `Multiple base rallies share the slowest march time <strong>${globalMaxMarch}s (${formatTime(globalMaxMarch)})</strong>: <strong>${labels}</strong>. Choose any one as your base.`;
-        startLiveBtn.textContent = '▶ Call First Rally… (Base)';
       }
-      startLiveBtn.classList.add('go-alert');
 
+      // Update Go button + hint
       if (baseEntries.length === 1) {
         const be = baseEntries[0];
         const label = makeLabel(be.tag, be.name);
         const hudLabel = makeHudLabel(label, be.petBuff);
+        startLiveBtn.textContent = `▶ Go ${hudLabel}`;
+        startLiveBtn.classList.add('go-alert');
         goHint.textContent = `${hudLabel} must launch first to sync all rallies.`;
       } else {
+        startLiveBtn.textContent = '▶ Go Base Rally';
+        startLiveBtn.classList.add('go-alert');
         const labels = baseEntries
           .map(e => makeHudLabel(makeLabel(e.tag, e.name), e.petBuff))
           .join(', ');
@@ -718,7 +729,7 @@
           ${baseLabel}<br>
           Common rally time: <strong>${rallyMinutes} min (${globalRallySeconds}s, ${formatTime(globalRallySeconds)})</strong>.<br>
           From base rally creation (t = 0) to impact: <strong>${globalTotalDuration}s (${formatTime(globalTotalDuration)})</strong>.<br>
-          Click "Call First Rally…" when the base rally is created in-game. Launch all other rallies after the listed delays.
+          Click "Go" when the base rally is created in-game. Launch all other rallies after the listed delays.
         </p>
       `;
 
@@ -777,7 +788,7 @@
 
       resultsDiv.style.display = 'block';
       liveSection.style.display = 'block';
-      liveStatus.textContent = 'Ready. Click the Call First Rally… button when the base rally is created.';
+      liveStatus.textContent = 'Ready. Click the Go button when the base rally is created.';
       startLiveBtn.disabled = false;
 
       // Enter focused HUD mode as soon as we calculate
@@ -800,7 +811,7 @@
           marchVoiceAnnounced = true;
         }
 
-        // Per-rally countdowns + Go (reduced voice: only "Name in 5" + "Go!")
+        // Per-rally countdowns + Go
         for (const item of schedule) {
           if (item.launched) continue;
 
@@ -809,11 +820,12 @@
           if (remainingDelay > 0 && remainingDelay <= 5) {
             const sec = Math.ceil(remainingDelay);
             if (sec !== item.lastCallSecond) {
-              // Beep at each second 5–1
+              // "[Tag] Name in 5, 4, 3, 2, 1"
               beep();
-              // Only speak at 5s: "[Tag] Name in 5"
               if (sec === 5) {
-                speak(`${item.hudLabel} in 5`);
+                speak(`${item.label} in 5`);
+              } else {
+                speak(String(sec));
               }
               item.lastCallSecond = sec;
             }
@@ -821,7 +833,7 @@
             // Go!
             item.launched = true;
             beep();
-            speak('Go!');
+            speak(`Go ${item.label}`);
             if (navigator.vibrate) {
               navigator.vibrate([150, 80, 150]);
             }
@@ -846,7 +858,7 @@
           return;
         }
 
-        // Last 10 seconds beeps + single hype line (no numeric voice countdown now)
+        // Last 10 seconds countdown beeps (to impact) + hype + 5–1 countdown
         const impactSecInt = Math.ceil(impactRemaining);
         if (impactSecInt <= 10 && impactSecInt > 0) {
           if (impactSecInt !== lastImpactBeepSecond) {
@@ -864,6 +876,12 @@
               const line = lines[Math.floor(Math.random() * lines.length)];
               speak(line);
               hypeSpoken = true;
+            }
+
+            // 5–1 seconds: numeric countdown
+            if (impactSecInt <= 5 && impactSecInt >= 1 && lastCountdownSpoken !== impactSecInt) {
+              speak(String(impactSecInt));
+              lastCountdownSpoken = impactSecInt;
             }
           }
         }
@@ -982,7 +1000,7 @@
           <div class="next-name-big urgency-low">Ready</div>
         </div>
         <div class="impact-line">
-          Press <span class="impact-time">Call First Rally…</span> to run again.
+          Press <span class="impact-time">Start First Rally</span> to run again.
         </div>
       `;
     }
